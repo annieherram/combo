@@ -39,19 +39,24 @@ class VersionFormatter:
         max_version = max(tuples)
 
         # If there is a dependency with a different major number, raise an error
-        if any(version[0] < max_version[0] for version in tuples):
-            raise MajorVersionMismatch
+        # TODO: Remove comment
+        # if any(version[0] < max_version[0] for version in tuples):
+        #     raise MajorVersionMismatch
 
         return filter(lambda v: self.get_as_tuple(v) == max_version, version_strings)[0]
 
 
 def version2commit(repo, name, version_str):
-    json_file_name = name + '_versions.json'
-    versions_dict = json.load(open(json_file_name, 'r'))
+    json_file_path = os.path.abspath(name + '_versions.json')
+
+    tags_prefix = ''
+
+    if os.path.exists(json_file_path):
+        with open(json_file_path, 'r') as f:
+            versions_dict = json.load(f)
+        tags_prefix = versions_dict['prefix']
 
     req_version_tuple = VersionFormatter().get_as_tuple(version_str)
-    commit = VersionFormatter(versions_dict['prefix']).get_requested_version(repo.tags, req_version_tuple)
+    commit = VersionFormatter(tags_prefix).get_requested_version(repo.tags, req_version_tuple)
 
     return commit
-
-
