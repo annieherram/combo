@@ -29,6 +29,7 @@ class GitDependency(DependencyBase):
         # Checkout to the requested commit
         commit_hash = get_commit(self._repo_name, version)
         self._repo.head.reference = commit_hash
+        self._repo.head.reset(working_tree=True)
 
         rmtree(os.path.join(dst_path, ".git"))
 

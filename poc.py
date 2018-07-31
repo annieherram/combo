@@ -83,9 +83,9 @@ class Combo:
 
         if latest_version == dependency['version']:
             self._dependencies[dependency['name']] = dependency
-            raise DependencyVersionUpdated
+            raise DependencyAlreadyExisted
 
-        raise DependencyAlreadyExisted
+        raise DependencyVersionUpdated
 
     def clone_dependencies(self, custom_manifest=None):
         """ Iterate the dependencies and clone them to the configured version """

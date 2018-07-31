@@ -1,9 +1,6 @@
 from servers.project_name_to_url import *
 
 
-server_directory = os.path.dirname(os.path.realpath(__file__))
-
-
 class MajorVersionMismatch(Exception):
     pass
 
@@ -51,8 +48,10 @@ class VersionFormatter:
 class CommitSupplier:
     TAGS_PREFIX_KEY = 'prefix'
 
-    def __init__(self, conversion_json):
-        with open(conversion_json, 'r') as f:
+    def __init__(self, dir_path, conversion_json_file_name):
+        self._dir_path = dir_path
+        json_path = os.path.join(dir_path, conversion_json_file_name)
+        with open(json_path, 'r') as f:
             self._converter = json.load(f)
 
     def get_commit(self, repo_name, version_str):
@@ -69,23 +68,27 @@ class CommitSupplier:
 
         return project_converter[version_str]
 
-    @staticmethod
-    def _search_tags(repo_name, version_str, tags_prefix=''):
+    def _search_tags(self, repo_name, version_str, tags_prefix=''):
         import git
 
-        dst_path = os.path.join(server_directory, repo_name)
+        dst_path = os.path.join(self._dir_path, repo_name).lower().replace(' ', '_')
 
         remote = project_name_to_url(repo_name)
         repo = git.Repo.clone_from(remote, dst_path)
 
         req_version_tuple = VersionFormatter().get_as_tuple(version_str)
-        commit = VersionFormatter(tags_prefix).get_requested_version(repo.tags, req_version_tuple)
+        selected_tag = VersionFormatter(tags_prefix).get_requested_version(repo.tags, req_version_tuple)
 
+        # The commit hash has to be stored now, because after folder deletion there is no way to get it
+        commit_hash = str(selected_tag.commit)
+
+        del selected_tag, repo
         rmtree(dst_path)
-        return commit
+        return commit_hash
 
 
-supplier = CommitSupplier(os.path.join(server_directory, 'versions.json'))
+server_directory = os.path.dirname(os.path.realpath(__file__))
+supplier = CommitSupplier(server_directory, 'versions.json')
 
 
 def get_commit(repo_name, version_str):
