@@ -1,0 +1,10 @@
+{
+    "Core Library":
+    {
+        "prefix": "v"
+    },
+    "Lib A":
+    {
+        "1.1": "7601a555b7b248dc41914d9a1a1a9f0dd9bb5927"
+    }
+}

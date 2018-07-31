@@ -1,5 +1,7 @@
-import json
-from utils import *
+from servers.project_name_to_url import *
+
+
+server_directory = os.path.dirname(os.path.realpath(__file__))
 
 
 class MajorVersionMismatch(Exception):
@@ -46,19 +48,46 @@ class VersionFormatter:
         return filter(lambda v: self.get_as_tuple(v) == max_version, version_strings)[0]
 
 
-def version2commit(repo, version_str):
-    remote_parts = str(repo).split('\\')
-    name_part = remote_parts[len(remote_parts) - 2]  # 1 before the last (.git)
-    json_file_path = os.path.abspath(name_part + '_versions.json')
+class CommitSupplier:
+    TAGS_PREFIX_KEY = 'prefix'
 
-    tags_prefix = ''
+    def __init__(self, conversion_json):
+        with open(conversion_json, 'r') as f:
+            self._converter = json.load(f)
 
-    if os.path.exists(json_file_path):
-        with open(json_file_path, 'r') as f:
-            versions_dict = json.load(f)
-        tags_prefix = versions_dict['prefix']
+    def get_commit(self, repo_name, version_str):
+        if repo_name not in self._converter:
+            return self._search_tags(repo_name, version_str)
 
-    req_version_tuple = VersionFormatter().get_as_tuple(version_str)
-    commit = VersionFormatter(tags_prefix).get_requested_version(repo.tags, req_version_tuple)
+        project_converter = self._converter[repo_name]
+        if self.TAGS_PREFIX_KEY in project_converter:
+            prefix = project_converter[self.TAGS_PREFIX_KEY]
+            return self._search_tags(repo_name, version_str, tags_prefix=prefix)
 
-    return commit
+        if version_str not in project_converter:
+            raise KeyError("Requested version {} not found for {} repository".format(version_str, repo_name))
+
+        return project_converter[version_str]
+
+    @staticmethod
+    def _search_tags(repo_name, version_str, tags_prefix=''):
+        import git
+
+        dst_path = os.path.join(server_directory, repo_name)
+
+        remote = project_name_to_url(repo_name)
+        repo = git.Repo.clone_from(remote, dst_path)
+
+        req_version_tuple = VersionFormatter().get_as_tuple(version_str)
+        commit = VersionFormatter(tags_prefix).get_requested_version(repo.tags, req_version_tuple)
+
+        rmtree(dst_path)
+        return commit
+
+
+supplier = CommitSupplier(os.path.join(server_directory, 'versions.json'))
+
+
+def get_commit(repo_name, version_str):
+    # This should be a server with TCP requests instead
+    return supplier.get_commit(repo_name, version_str)

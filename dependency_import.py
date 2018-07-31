@@ -2,7 +2,7 @@
 Handles importing dependencies from multiple possible sources (git repository, zip file, server, etc...)
 """
 
-from version2commit import *
+from servers import *
 
 
 class DependencyBase(object):
@@ -14,9 +14,10 @@ class DependencyBase(object):
 
 
 class GitDependency(DependencyBase):
-    def __init__(self, url):
+    def __init__(self, repo_name):
         DependencyBase.__init__(self)
-        self._url = url
+        self._repo_name = repo_name
+        self._url = project_name_to_url(repo_name)
         self._repo = None
 
     def clone(self, version, dst_path):
@@ -26,7 +27,7 @@ class GitDependency(DependencyBase):
         self._repo = git.Repo.clone_from(self._url, dst_path)
 
         # Checkout to the requested commit
-        commit_hash = version2commit(self._repo, version)
+        commit_hash = get_commit(self._repo_name, version)
         self._repo.head.reference = commit_hash
 
         rmtree(os.path.join(dst_path, ".git"))
@@ -36,7 +37,8 @@ class DependencyImport:
     def __init__(self, source):
         self._src = source
 
-        assert '.git' in source, "Unsupported source type"
+        # TODO: Currently source is the "project name", the server converts specifically to URL temporarily
+        # assert '.git' in source, "Unsupported source type"
         self._handler = GitDependency(source)
 
     def clone(self, version, dst_path):

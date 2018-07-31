@@ -1,10 +1,14 @@
 from __future__ import print_function
 from utils import *
 import git
+import json
 from dependency_import import *
+from servers import *
+
 
 class DependencyAlreadyExisted(Exception):
     pass
+
 
 class DependencyVersionUpdated(Exception):
     pass
@@ -40,12 +44,11 @@ class ManifestDetails:
 
 
 class Combo:
-    def __init__(self, repo_path, urls):
+    def __init__(self, repo_path):
         self._base_manifest = ManifestDetails(repo_path)
         self._manifests = {self._base_manifest.name: self._base_manifest}
         self._dependencies = dict()
 
-        self._urls = urls
         self._repo_path = repo_path
         self._my_repo = git.Repo(repo_path)
 
@@ -54,7 +57,7 @@ class Combo:
     def validate_params(self):
         for manifest in self._manifests.values():
             for dep in manifest.dependencies.values():
-                assert dep['name'] in self._urls, "Count not find a source for dependency '{}'".format(dep['name'])
+                project_name_to_url(dep['name'])
 
     def get_dependency_dir(self, dep):
         dep_name = dep if isinstance(dep, basestring) else dep['name']
@@ -90,7 +93,6 @@ class Combo:
 
         for dep_name, dep in manifest.dependencies.items():
             dst_path = self.get_dependency_dir(dep_name)
-            repo_url = self._urls[dep_name]
 
             try:
                 self.add_dependency(dep)
@@ -101,7 +103,7 @@ class Combo:
                 # TODO: Remove old version's dependencies
                 rmtree(dst_path)
 
-            DependencyImport(repo_url).clone(dep['version'], dst_path)
+            DependencyImport(dep_name).clone(dep['version'], dst_path)
 
             # Clone the recursive dependencies of the current dependency
             dependency_manifest = ManifestDetails(dst_path)

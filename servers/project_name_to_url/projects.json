@@ -1,0 +1,5 @@
+{
+    "Lib A": "https://github.com/annieherram/lib_a.git",
+    "Lib B": "https://github.com/annieherram/lib_b.git",
+    "Core Library": "https://github.com/annieherram/core_lib.git"
+}

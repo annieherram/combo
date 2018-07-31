@@ -3,15 +3,13 @@ import sys
 
 
 def main():
-    repo_dir = "C:\Combo\my_repos\my_exec"
-    contrib_dir = os.path.join(repo_dir, "contrib")
+    my_path = sys.argv[1]
+
+    contrib_dir = os.path.join(my_path, "contrib")
     if os.path.exists(contrib_dir):
         rmtree(contrib_dir)
 
-    my_path = sys.argv[1]
-    urls = json.load(open("C:\Combo\my_repos\my_exec\urls.json", 'r'))
-
-    Combo(my_path, urls).resolve()
+    Combo(my_path).resolve()
 
 
 if __name__ == '__main__':
