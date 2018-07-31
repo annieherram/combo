@@ -1,7 +1,7 @@
 from __future__ import print_function
 from utils import *
 import git
-from version2commit import *
+from dependency_import import *
 
 class DependencyAlreadyExisted(Exception):
     pass
@@ -101,12 +101,7 @@ class Combo:
                 # TODO: Remove old version's dependencies
                 rmtree(dst_path)
 
-            # Clone the dependency
-            dep['repo'] = git.Repo.clone_from(repo_url, dst_path)
-
-            # Checkout to the requested commit
-            dep['commit_hash'] = version2commit(dep['repo'], dep_name, dep['version'])
-            dep['repo'].head.reference = dep['commit_hash']
+            DependencyImport(repo_url).clone(dep['version'], dst_path)
 
             # Clone the recursive dependencies of the current dependency
             dependency_manifest = ManifestDetails(dst_path)
@@ -114,18 +109,17 @@ class Combo:
                 self.add_manifest(dependency_manifest)
                 self.clone_dependencies(dependency_manifest)
 
-            rmtree(os.path.join(dst_path, ".git"))
-
     def resolve(self):
         """ Commit the current manifest's into your repository """
         self.clone_dependencies()
 
-        # Stage
-        for manifest in self._manifests.values():
-            for dep in manifest.dependencies.values():
-                # Stage all files of the current dependency
-                dep_dir = self.get_dependency_dir(dep)
-                self._my_repo.index.add([dep_dir])
-
-        # Commit the changes # TODO: Decide if we want this
+        # TODO: Decide if we want this
+        # # Stage
+        # for manifest in self._manifests.values():
+        #     for dep in manifest.dependencies.values():
+        #         # Stage all files of the current dependency
+        #         dep_dir = self.get_dependency_dir(dep)
+        #         self._my_repo.index.add([dep_dir])
+        #
+        # Commit the changes
         # self._my_repo.index.commit('Manifest apply', parent_commits=[self._my_repo.commit()])

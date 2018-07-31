@@ -46,8 +46,10 @@ class VersionFormatter:
         return filter(lambda v: self.get_as_tuple(v) == max_version, version_strings)[0]
 
 
-def version2commit(repo, name, version_str):
-    json_file_path = os.path.abspath(name + '_versions.json')
+def version2commit(repo, version_str):
+    remote_parts = str(repo).split('\\')
+    name_part = remote_parts[len(remote_parts) - 2]  # 1 before the last (.git)
+    json_file_path = os.path.abspath(name_part + '_versions.json')
 
     tags_prefix = ''
 
