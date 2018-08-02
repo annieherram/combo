@@ -2,7 +2,7 @@
 Handles importing dependencies from multiple possible sources (git repository, zip file, server, etc...)
 """
 
-from servers import *
+from source_locator_server import *
 
 
 class DependencyBase(object):

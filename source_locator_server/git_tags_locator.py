@@ -1,5 +1,5 @@
 from utils import *
-from source_locator_general import *
+from .source_locator_general import *
 
 
 class GitTagsVersionFormatter(VersionFormatter):

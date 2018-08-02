@@ -1,4 +1,4 @@
-from source_locator import *
+from .source_locator import *
 
 
 sources_json_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'sources.json')

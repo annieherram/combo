@@ -1,5 +1,5 @@
 import json
-from git_tags_locator import *
+from .git_tags_locator import *
 
 
 class UndefinedProject(BaseException):

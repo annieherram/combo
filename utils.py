@@ -24,7 +24,7 @@ class VersionFormatter:
         # if any(version[0] < max_version[0] for version in tuples):
         #     raise MajorVersionMismatch
 
-        return filter(lambda v: self.get_as_tuple(v) == max_version, version_strings)[0]
+        return list(filter(lambda v: self.get_as_tuple(v) == max_version, version_strings))[0]
 
 
 class ObjectNotFound(LookupError):
@@ -47,10 +47,20 @@ def rmtree(top):
 
 
 def xfilter(func, iterable):
-    filtered = filter(func, iterable)
+    filtered = list(filter(func, iterable))
     if len(filtered) < 1:
         raise ObjectNotFound('No record found matching the selected filter')
     elif len(filtered) > 1:
         raise MultipleObjectsFound('Multiple records found with the selected filter')
 
     return filtered[0]
+
+
+def is_iterable(x):
+    return hasattr(x, '__iter__')
+
+
+def is_in(x, y):
+    if is_iterable(y):
+        return x == y
+    return x in y

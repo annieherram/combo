@@ -1,7 +1,8 @@
 from __future__ import print_function
 import git
 from dependency_importer import *
-from servers import *
+from source_locator_server import *
+import six
 
 
 class DependencyAlreadyExisted(Exception):
@@ -53,7 +54,7 @@ class Combo:
         self.importer = DependencyImporter()
 
     def get_dependency_dir(self, dep):
-        dep_name = dep if isinstance(dep, basestring) else dep['name']
+        dep_name = dep if isinstance(dep, six.string_types) else dep['name']
         return os.path.join(self._base_manifest.output_dir, dep_name.lower().replace(' ', '_'))
 
     def add_manifest(self, manifest):
