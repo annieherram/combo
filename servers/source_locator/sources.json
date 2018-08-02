@@ -1,0 +1,30 @@
+{
+    "Lib A":
+    {
+        "general_type": "version_dependent",
+
+        "1.1":
+        {
+            "type": "git",
+            "url": "https://github.com/annieherram/lib_a.git",
+            "commit_hash": "7601a555b7b248dc41914d9a1a1a9f0dd9bb5927"
+        },
+        "1.5":
+        {
+            "type": "git",
+            "url": "https://github.com/annieherram/lib_a.git",
+            "commit_hash": "ddec071a5e3dabe704c5e5de189c2994f82c5e49"
+        }
+    },
+    "Lib B":
+    {
+        "general_type": "git_tags",
+        "url": "https://github.com/annieherram/lib_b.git"
+    },
+    "Core Library":
+    {
+        "general_type": "git_tags",
+        "url": "https://github.com/annieherram/core_lib.git",
+        "tags_prefix": "v"
+    }
+}
