@@ -33,7 +33,7 @@ class GitTagsSourceSupplier:
     def __init__(self, project_name, project_details):
         self._project_name = project_name
         self._remote_url = project_details['url']
-        self._tags_prefix = project_details.get('tags_prefix') or ''
+        self._tags_prefix = project_details.get('tags_prefix') or ''  # If there is no prefix key, use empty string
 
     def get_source(self, version_str):
         commit_hash = self._search_tags(version_str)
@@ -44,7 +44,7 @@ class GitTagsSourceSupplier:
         import git
 
         working_dir = os.path.dirname(os.path.realpath(__file__))
-        dst_path = os.path.join(working_dir, self._project_name).lower().replace(' ', '_')
+        dst_path = os.path.join(working_dir, self._project_name.lower().replace(' ', '_'))
 
         repo = git.Repo.clone_from(self._remote_url, dst_path)
 

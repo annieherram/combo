@@ -42,7 +42,7 @@ class ManifestDetails:
         return data
 
 
-class Combo:
+class DependenciesManager:
     def __init__(self, repo_path):
         self._base_manifest = ManifestDetails(repo_path)
         self._manifests = {self._base_manifest.name: self._base_manifest}
@@ -107,15 +107,32 @@ class Combo:
 
     def resolve(self):
         """ Commit the current manifest's into your repository """
-        self.clone_dependencies()
 
-        # TODO: Decide if we want this
-        # # Stage
-        # for manifest in self._manifests.values():
-        #     for dep in manifest.dependencies.values():
-        #         # Stage all files of the current dependency
-        #         dep_dir = self.get_dependency_dir(dep)
-        #         self._my_repo.index.add([dep_dir])
-        #
-        # Commit the changes
-        # self._my_repo.index.commit('Manifest apply', parent_commits=[self._my_repo.commit()])
+        """
+        Pre-resolve steps - check if "dirty"
+        
+        Resolve algorithm steps:
+        1. clone_everything - Recursive clone, keeping both older and newer versions. Create a tree in the process.
+        2. create_debatables_table - Iterate all dependencies. Mark debatable if there is a newer version somewhere
+            debatables_table_example = [
+                {"debatable_key": "A_v1", "eliminators": ["A_v2", "A_v3"], "alive": True},  # Always start as alive
+                {"debatable_key": "A_v2", "eliminators": ["A_v3"], "alive": True},
+                {"debatable_key": "B_v1", "eliminators": ["B_v2"], "alive": True},
+            ]
+        3. marks_deads - Go through the tree:
+            if is_debatable():
+                pass  # Don't go through the node's sons
+            else:
+                if is_eliminator():
+                    mark_all_eliminated_debatables_as_dead()
+                step_in()  # Recursive
+        4. step_in_alive_debatables - Perform step 3 on every alive "debatable" from the debatables table
+        5. remote_deads_from_tree - Go through the tree, if a node is marked as "dead" on the debatables table,
+                                    remove the node from the tree (this will remove his "sons" as well)  
+        6. keep_from_tree - All of the dependencies were already cloned on step 1,
+                            keep only the files of those who are still remaining on the tree
+                            
+        Puking bags will be delivered on the exit. Thank you for choosing Combo :)
+        """
+
+        self.clone_dependencies()

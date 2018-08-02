@@ -9,7 +9,7 @@ def main():
     if os.path.exists(contrib_dir):
         rmtree(contrib_dir)
 
-    Combo(my_path).resolve()
+    DependenciesManager(my_path).resolve()
 
 
 if __name__ == '__main__':
