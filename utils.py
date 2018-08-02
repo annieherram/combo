@@ -2,6 +2,31 @@ import os
 import stat
 
 
+class MajorVersionMismatch(BaseException):
+    pass
+
+
+class VersionFormatter:
+    def __init__(self, prefix_format=''):
+        self._prefix = prefix_format
+
+    def get_as_tuple(self, version_str):
+        assert version_str.startswith(self._prefix), \
+            'Version string is expected to start with the prefix "{}"'.format(version_str)
+        return tuple(map(int, version_str[len(self._prefix):].split(".")))
+
+    def get_latest(self, version_strings):
+        tuples = map(self.get_as_tuple, version_strings)
+        max_version = max(tuples)
+
+        # If there is a dependency with a different major number, raise an error
+        # TODO: Remove comment
+        # if any(version[0] < max_version[0] for version in tuples):
+        #     raise MajorVersionMismatch
+
+        return filter(lambda v: self.get_as_tuple(v) == max_version, version_strings)[0]
+
+
 class ObjectNotFound(LookupError):
     pass
 

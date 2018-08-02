@@ -1,8 +1,6 @@
 from __future__ import print_function
-from utils import *
 import git
-import json
-from dependency_import import *
+from dependency_importer import *
 from servers import *
 
 
@@ -15,7 +13,7 @@ class DependencyVersionUpdated(Exception):
 
 
 class ManifestDetails:
-    manifest_file_name = "combo_manifest.json"
+    manifest_file_name = 'combo_manifest.json'
 
     def __init__(self, dir_path):
         self.base_path = dir_path
@@ -60,7 +58,7 @@ class Combo:
 
     def add_manifest(self, manifest):
         if manifest.name in self._manifests.keys():
-            raise KeyError("Dependency {} exists in multiple manifests".format(manifest.name))
+            raise KeyError('Dependency {} exists in multiple manifests'.format(manifest.name))
 
         self._manifests[manifest.name] = manifest
 
@@ -73,7 +71,7 @@ class Combo:
         try:
             latest_version = VersionFormatter().get_latest((dependency['version'], existing_dependency['version']))
         except MajorVersionMismatch:
-            raise MajorVersionMismatch("Both {} and {} versions of {} are required".format(
+            raise MajorVersionMismatch('Both {} and {} versions of {} are required'.format(
                 dependency['version'], existing_dependency['version'], dependency['name']))
 
         if latest_version == dependency['version']:
