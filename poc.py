@@ -52,12 +52,7 @@ class Combo:
         self._repo_path = repo_path
         self._my_repo = git.Repo(repo_path)
 
-        self.validate_params()
-
-    def validate_params(self):
-        for manifest in self._manifests.values():
-            for dep in manifest.dependencies.values():
-                project_name_to_url(dep['name'])
+        self.importer = DependencyImporter()
 
     def get_dependency_dir(self, dep):
         dep_name = dep if isinstance(dep, basestring) else dep['name']
@@ -103,7 +98,7 @@ class Combo:
                 # TODO: Remove old version's dependencies
                 rmtree(dst_path)
 
-            DependencyImport(dep_name).clone(dep['version'], dst_path)
+            self.importer.clone(dep_name, dep['version'], dst_path)
 
             # Clone the recursive dependencies of the current dependency
             dependency_manifest = ManifestDetails(dst_path)
