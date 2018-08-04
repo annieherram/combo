@@ -39,8 +39,8 @@ class DependencyImporter:
             'git': GitDependency
         }
 
-    def clone(self, project_name, version, dst_path):
-        import_src = get_version_source(project_name, version)
+    def clone(self, combo_dep, dst_path):
+        import_src = get_version_source(*combo_dep.as_tuple())
 
         if import_src.src_type not in self.handler_dict:
             raise NotImplementedError('Can not import dependency with source type "{}"'.format(import_src.src_type))

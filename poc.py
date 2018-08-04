@@ -2,6 +2,7 @@ from __future__ import print_function
 import git
 from dependency_importer import *
 from source_locator_server import *
+from combo_dependnecy import *
 import six
 
 
@@ -81,6 +82,40 @@ class DependenciesManager:
 
         raise DependencyVersionUpdated
 
+    def _clone_everything(self, custom_manifest=None):
+        """
+        This is step #1.
+        In this step, every dependency of the current manifest is going to be cloned, followed by his own dependencies.
+        This function will continue recursively.
+        Additionally, while cloning a dependencies tree is going to be built.
+
+        :param custom_manifest: The manifest of the base of the tree to clone.
+                                The base manifest of the project will be used in case of None
+        """
+        manifest = custom_manifest or self._base_manifest  # Default manifest if None
+
+        for dep_name, dep in manifest.dependencies.items():
+            dst_path = self.get_dependency_dir(dep_name)
+
+            try:
+                self.add_dependency(dep)
+            except DependencyAlreadyExisted:
+                continue
+            except DependencyVersionUpdated:
+                # Old version is now irrelevant
+                # TODO: Remove old version's dependencies
+                rmtree(dst_path)
+
+            combo_dependency = ComboDep(dep_name, dep['version'])
+            self.importer.clone(combo_dependency, dst_path)
+
+            # Clone the recursive dependencies of the current dependency
+            dependency_manifest = ManifestDetails(dst_path)
+            if dependency_manifest.exists():
+                self.add_manifest(dependency_manifest)  # Should be added to the upcoming "tree"
+                self.clone_dependencies(dependency_manifest)
+
+
     def clone_dependencies(self, custom_manifest=None):
         """ Iterate the dependencies and clone them to the configured version """
         manifest = self._base_manifest if custom_manifest is None else custom_manifest
@@ -97,7 +132,8 @@ class DependenciesManager:
                 # TODO: Remove old version's dependencies
                 rmtree(dst_path)
 
-            self.importer.clone(dep_name, dep['version'], dst_path)
+            combo_dependency = ComboDep(dep_name, dep['version'])
+            self.importer.clone(combo_dependency, dst_path)
 
             # Clone the recursive dependencies of the current dependency
             dependency_manifest = ManifestDetails(dst_path)
