@@ -43,6 +43,32 @@ class ManifestDetails:
         return data
 
 
+class Graph:
+    """
+    TODO: Might replace the ugly "resolve steps algorithm" solution
+    """
+    def __init__(self, **kwargs):
+        self._graph = {key: val for key, val in kwargs}
+
+    def find_path(self, start, end, path=list()):
+        path = path + [start]
+        if start == end:
+            return path
+        if start not in self._graph:
+            return None
+
+        for node in self._graph[start]:
+            if node not in path:
+                new_path = self.find_path(node, end, path)
+                if new_path:
+                    return new_path
+        return None
+
+    def add(self, node):
+        if node in self._graph.values():
+            return
+
+
 class DependenciesManager:
     def __init__(self, repo_path):
         self._base_manifest = ManifestDetails(repo_path)
@@ -141,8 +167,6 @@ class DependenciesManager:
                 self.clone_dependencies(dependency_manifest)
 
     def resolve(self):
-        """ Commit the current manifest's into your repository """
-
         """
         Pre-resolve steps - check if "dirty"
         
@@ -154,7 +178,7 @@ class DependenciesManager:
                 {"debatable_key": "A_v2", "eliminators": ["A_v3"], "alive": True},
                 {"debatable_key": "B_v1", "eliminators": ["B_v2"], "alive": True},
             ]
-        3. marks_deads - Go through the tree:
+        3. mark_deads - Go through the tree:
             if is_debatable():
                 pass  # Don't go through the node's sons
             else:
@@ -162,7 +186,7 @@ class DependenciesManager:
                     mark_all_eliminated_debatables_as_dead()
                 step_in()  # Recursive
         4. step_in_alive_debatables - Perform step 3 on every alive "debatable" from the debatables table
-        5. remote_deads_from_tree - Go through the tree, if a node is marked as "dead" on the debatables table,
+        5. remove_deads_from_tree - Go through the tree, if a node is marked as "dead" on the debatables table,
                                     remove the node from the tree (this will remove his "sons" as well)  
         6. keep_from_tree - All of the dependencies were already cloned on step 1,
                             keep only the files of those who are still remaining on the tree

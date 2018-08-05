@@ -31,6 +31,9 @@ class Version:
 
         return all(args[i].major == args[i+1].major for i in range(len(args) - 1))
 
+    def __str__(self):
+        return self.as_string()
+
     def __lt__(self, other):
         if not isinstance(other, type(self)):
             raise TypeError('Type of {} should be {}'.format(other, type(self)))
@@ -40,8 +43,11 @@ class Version:
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):
-            return NotImplemented
+            raise TypeError('Type of {} should be {}'.format(other, type(self)))
         return self._tup == other._tup
+
+    def __hash__(self):
+        return hash(self._tup)
 
     @staticmethod
     def _extract_major(tup):

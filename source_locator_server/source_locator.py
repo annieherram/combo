@@ -68,5 +68,5 @@ class SourceLocator:
             raise KeyError('Unsupported {} value - {}'.format(self.IDENTIFIER_TYPE_KEYWORD, project_src_type))
 
         source_supplier = source_supplier_type(project_name, project_details)
-        source = source_supplier.get_source(version)
+        source = source_supplier.get_source(str(version))
         return source
