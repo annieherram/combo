@@ -1,3 +1,6 @@
+from __future__ import print_function
+
+
 class ComboDep:
     def __init__(self, project_name, version):
         self.name = project_name
@@ -13,6 +16,6 @@ class ComboDep:
 
 if __name__ == '__main__':
     first = ComboDep(1, 2)
-    print first
+    print(first)
     second = ComboDep(*first.as_tuple())
-    print second
+    print(second)

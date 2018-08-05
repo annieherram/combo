@@ -3,7 +3,7 @@ import git
 from dependency_importer import *
 from source_locator_server import *
 from combo_dependnecy import *
-import six
+from version import *
 
 
 class DependencyAlreadyExisted(Exception):
@@ -55,7 +55,7 @@ class DependenciesManager:
         self.importer = DependencyImporter()
 
     def get_dependency_dir(self, dep):
-        dep_name = dep if isinstance(dep, six.string_types) else dep['name']
+        dep_name = dep if is_string(dep) else dep['name']
         return os.path.join(self._base_manifest.output_dir, dep_name.lower().replace(' ', '_'))
 
     def add_manifest(self, manifest):
@@ -71,12 +71,12 @@ class DependenciesManager:
 
         existing_dependency = self._dependencies[dependency['name']]
         try:
-            latest_version = VersionFormatter().get_latest((dependency['version'], existing_dependency['version']))
+            latest_version = max(Version(dependency['version']), Version(existing_dependency['version']))
         except MajorVersionMismatch:
             raise MajorVersionMismatch('Both {} and {} versions of {} are required'.format(
                 dependency['version'], existing_dependency['version'], dependency['name']))
 
-        if latest_version == dependency['version']:
+        if latest_version.as_string() == dependency['version']:
             self._dependencies[dependency['name']] = dependency
             raise DependencyAlreadyExisted
 
@@ -114,7 +114,6 @@ class DependenciesManager:
             if dependency_manifest.exists():
                 self.add_manifest(dependency_manifest)  # Should be added to the upcoming "tree"
                 self.clone_dependencies(dependency_manifest)
-
 
     def clone_dependencies(self, custom_manifest=None):
         """ Iterate the dependencies and clone them to the configured version """

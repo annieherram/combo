@@ -1,32 +1,33 @@
-from utils import *
 from .source_locator_general import *
+from version import *
 
 
-class GitTagsVersionFormatter(VersionFormatter):
-    def __init__(self, prefix_format):
-        VersionFormatter.__init__(self, prefix_format)
+class GitTagsVersionFormatter:
+    def __init__(self, tags_prefix):
+        self._tags_prefix = tags_prefix
 
     def is_version(self, tag):
         try:
-            self.get_as_tuple(str(tag))
-        except (AssertionError, ValueError):
+            Version(str(tag), self._tags_prefix)
+        except:
             return False
         return True
 
     def get_version_tags(self, tags):
         return filter(self.is_version, tags)
 
-    def get_requested_version(self, tags, requested_version_tuple):
+    def find_tag(self, tags, requested_version):
         version_tags = self.get_version_tags(tags)
         try:
-            return xfilter(lambda tag: self.get_as_tuple(str(tag)) == requested_version_tuple, version_tags)
+            return xfilter(lambda tag: Version(str(tag), self._tags_prefix) == requested_version, version_tags)
         except ObjectNotFound as e:
             raise RequestedVersionNotFound(e)
 
-    def get_latest_from_tags(self, tags):
+    def latest_tag(self, tags):
         version_tags = self.get_version_tags(tags)
-        max_version = max(map(self.get_as_tuple, map(str, version_tags)))
-        return xfilter(lambda tag: self.get_as_tuple(str(tag)) == max_version, version_tags)
+        versions = (Version(str(tag), self._tags_prefix) for tag in tags)
+        max_version = max(versions)
+        return xfilter(lambda tag: str(tag) == max_version.as_string(), version_tags)
 
 
 class GitTagsSourceSupplier:
@@ -48,9 +49,8 @@ class GitTagsSourceSupplier:
 
         repo = git.Repo.clone_from(self._remote_url, dst_path)
 
-        requested_version_tuple = VersionFormatter().get_as_tuple(version_str)
-        selected_tag = GitTagsVersionFormatter(self._tags_prefix).\
-            get_requested_version(repo.tags, requested_version_tuple)
+        requested_version = Version(version_str)
+        selected_tag = GitTagsVersionFormatter(self._tags_prefix).find_tag(repo.tags, requested_version)
 
         # The commit hash has to be stored now, because after folder deletion there is no way to get it
         commit_hash = str(selected_tag.commit)
