@@ -8,6 +8,9 @@ def main():
     contrib_dir = os.path.join(my_path, "contrib")
     if os.path.exists(contrib_dir):
         rmtree(contrib_dir)
+    metadata_dir = os.path.join(my_path, ".combo")
+    if os.path.exists(metadata_dir):
+        rmtree(metadata_dir)
 
     DependenciesManager(my_path).resolve()
 
