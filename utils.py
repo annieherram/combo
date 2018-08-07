@@ -58,3 +58,12 @@ def is_in(x, y):
 
 def is_string(s):
     return isinstance(s, six.string_types)
+
+
+def dicts_equal(d1, d2):
+    if not d1.keys() == d2.keys():
+        return False
+    for key in d1.keys():
+        if d1[key] != d2[key]:
+            return False
+    return True

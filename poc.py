@@ -39,6 +39,10 @@ class ManifestDetails:
     def sons(self):
         return list(self.dependencies.values())
 
+    def __eq__(self, other):
+        assert isinstance(other, type(self))
+        return dicts_equal(self.manifest, other.manifest)
+
     @staticmethod
     def read_manifest(path):
         with open(path, 'r') as f:
@@ -65,11 +69,12 @@ class DependenciesManager:
             return os.path.join(self._repo_path, self._metadata_directory,
                                 dep.normalized_name_dir(), dep.normalized_version_dir())
 
-    def add_manifest(self, manifest):
-        if manifest.name in self._manifests.keys():
-            raise KeyError('Dependency {} exists in multiple manifests'.format(manifest.name))
-
-        self._manifests[manifest.name] = manifest
+    def add_manifest(self, dep, manifest):
+        if dep not in self._manifests.keys():
+            self._manifests[dep] = manifest
+        else:
+            if self._manifests[dep] != manifest:
+                raise ValueError('Different manifests found for dependency {}'.format(str(dep)))
 
     def _add_dep_node(self, dependency_node):
         if dependency_node not in self._dependencies.values():
@@ -117,7 +122,7 @@ class DependenciesManager:
             next_sons = list()
             dependency_manifest = ManifestDetails(dst_path)
             if dependency_manifest.exists():
-                self.add_manifest(dependency_manifest)
+                self.add_manifest(combo_dependency, dependency_manifest)
                 next_sons = dependency_manifest.sons()
 
             tree_head[combo_dependency] = self._build_tree(combo_dependency, next_sons)
@@ -126,6 +131,19 @@ class DependenciesManager:
                 self._add_dep_node(tree_head[combo_dependency])
 
         return tree_head
+
+    def _tree_as_str(self, head=None, indentation=0):
+        def new_line(indent):
+            return '\n' + '\t' * indent
+
+        if head is None:
+            head = self._tree_head
+
+        separator = ',' + new_line(indentation + 1)
+        sons = separator.join(self._tree_as_str(son, indentation + 1) for son in self._get_sons(head))
+        wrapped = new_line(indentation) + '{' + new_line(indentation + 1) + sons + new_line(indentation) + '}'
+
+        return str(head['value']) + ': ' + (wrapped if sons else '{}')
 
     def _create_undecided_table(self):
         def _find_eliminators(project_name, min_version):
@@ -179,11 +197,16 @@ class DependenciesManager:
         if head is None:
             head = self._tree_head
 
+        pop_list = list()
+
         for son in self._get_sons(head):
             if self._is_alive(son['value']):
                 self._remove_deads_from_tree(son)
             else:
-                head.pop(son)
+                pop_list.append(son['value'])
+
+        for son_to_pop in pop_list:
+            head.pop(son_to_pop)
 
     def _extern_dependency(self, dep):
         dst_path = self.get_dependency_dir(dep)
@@ -211,6 +234,8 @@ class DependenciesManager:
             Create a tree in the process.
         '''
         self._tree_head = self._build_tree('Root', self._base_manifest.sons())
+
+        print(self._tree_as_str(), '\n')
 
         '''
         2. create_undecided_table - Iterate all dependencies. Mark undecided if there is a newer version somewhere
@@ -247,6 +272,6 @@ class DependenciesManager:
                             keep only the files of those who are still remaining on the tree
         '''
 
-        print(self._tree_head)
+        print(self._tree_as_str(), '\n')
         self._extern_from_tree()
         # Puking bags will be delivered on the exit. Thank you for choosing Combo :)

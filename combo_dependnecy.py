@@ -17,8 +17,7 @@ class ComboDep:
         return str(self.version).replace('.', '_')
 
     def __str__(self):
-        return "Project name: {}\n" \
-               "Version number: {}".format(self.name, str(self.version))
+        return "{}-{}".format(self.name, str(self.version))
 
     def __hash__(self):
         return hash(self.as_tuple())
