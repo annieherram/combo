@@ -9,6 +9,10 @@ class DependencyBase(object):
     def __init__(self, dependency_source):
         self.dep_src = dependency_source
 
+    def assert_keywords(self, *keywords):
+        for keyword in keywords:
+            assert hasattr(self.dep_src, keyword), 'Invalid import source, missing attribute "{}"'.format(keyword)
+
     def clone(self, dst_path):
         raise NotImplementedError
 
@@ -18,8 +22,7 @@ class GitDependency(DependencyBase):
     COMMIT_HASH_KEYWORD = 'commit_hash'
 
     def clone(self, dst_path):
-        for keyword in (self.REMOTE_URL_KEYWORD, self.COMMIT_HASH_KEYWORD):
-            assert hasattr(self.dep_src, keyword), 'Invalid import source, missing attribute "{}"'.format(keyword)
+        self.assert_keywords(self.REMOTE_URL_KEYWORD, self.COMMIT_HASH_KEYWORD)
 
         import git
 
@@ -33,14 +36,25 @@ class GitDependency(DependencyBase):
         rmtree(os.path.join(dst_path, '.git'))
 
 
+class LocalPathDependency(DependencyBase):
+    PATH_KEYWORD = 'local_path'
+
+    def clone(self, dst_path):
+        self.assert_keywords(self.PATH_KEYWORD)
+
+        src_path = getattr(self.dep_src, self.PATH_KEYWORD)
+        copytree(src_path, dst_path)
+
+
 class DependencyImporter:
     def __init__(self):
         self.handler_dict = {
-            'git': GitDependency
+            'git': GitDependency,
+            'local_path': LocalPathDependency
         }
 
-    def clone(self, project_name, version, dst_path):
-        import_src = get_version_source(project_name, version)
+    def clone(self, combo_dep, dst_path):
+        import_src = get_version_source(*combo_dep.as_tuple())
 
         if import_src.src_type not in self.handler_dict:
             raise NotImplementedError('Can not import dependency with source type "{}"'.format(import_src.src_type))

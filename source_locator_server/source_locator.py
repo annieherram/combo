@@ -6,7 +6,7 @@ class UndefinedProject(BaseException):
     pass
 
 
-class VersionHandler:
+class SpecificVersionHandler:
     TYPE_KEYWORD = 'type'
 
     def __init__(self, version_details):
@@ -23,21 +23,21 @@ class VersionHandler:
 class VersionDependentSourceSupplier:
     def __init__(self, project_name, project_details):
         self._project_name = project_name
-        self._versions_dict = project_details
+        self._specific_versions_dict = project_details
 
     def get_source(self, version_str):
-        if version_str not in self._versions_dict:
+        if version_str not in self._specific_versions_dict:
             raise RequestedVersionNotFound('Version {} could not be found for project {}'.format(
                 version_str, self._project_name))
 
-        version_details = self._versions_dict[version_str]
+        specific_version_details = self._specific_versions_dict[version_str]
         try:
-            version_handler = VersionHandler(version_details)
+            specific_version_handler = SpecificVersionHandler(specific_version_details)
         except KeyError:
             raise KeyError('Version {} of project "{}" - keyword {} does not exist'.format(
-                version_str, self._project_name, VersionHandler.TYPE_KEYWORD))
+                version_str, self._project_name, SpecificVersionHandler.TYPE_KEYWORD))
 
-        source = version_handler.get_source()
+        source = specific_version_handler.get_source()
         return source
 
 
@@ -61,12 +61,12 @@ class SourceLocator:
         project_src_type = project_details[self.IDENTIFIER_TYPE_KEYWORD]
 
         if project_src_type == 'version_dependent':
-            version_supplier_type = VersionDependentSourceSupplier
+            source_supplier_type = VersionDependentSourceSupplier
         elif project_src_type == 'git_tags':
-            version_supplier_type = GitTagsSourceSupplier
+            source_supplier_type = GitTagsSourceSupplier
         else:
             raise KeyError('Unsupported {} value - {}'.format(self.IDENTIFIER_TYPE_KEYWORD, project_src_type))
 
-        version_supplier = version_supplier_type(project_name, project_details)
-        source = version_supplier.get_source(version)
+        source_supplier = source_supplier_type(project_name, project_details)
+        source = source_supplier.get_source(str(version))
         return source
