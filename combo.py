@@ -1,4 +1,4 @@
-from poc import *
+from dependencies_manager import *
 import sys
 
 
