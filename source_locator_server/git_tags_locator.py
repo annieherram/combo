@@ -1,6 +1,9 @@
 from .source_locator_general import *
 from version import *
 
+import git_api
+import re
+
 
 class GitTagsVersionFormatter:
     def __init__(self, tags_prefix):
@@ -42,19 +45,17 @@ class GitTagsSourceSupplier:
         return source
 
     def _search_tags(self, version_str):
-        import git
-
         working_dir = os.path.dirname(os.path.realpath(__file__))
         dst_path = os.path.join(working_dir, self._project_name.lower().replace(' ', '_'))
 
-        repo = git.Repo.clone_from(self._remote_url, dst_path)
+        repo = git_api.clone(self._remote_url, dst_path)
+        print(repo.listall_references())
+        tags = [s[len('refs/tags/'):] for s in filter(lambda r: r.startswith('refs/tags/'), repo.listall_references())]
 
-        requested_version = Version(version_str)
-        selected_tag = GitTagsVersionFormatter(self._tags_prefix).find_tag(repo.tags, requested_version)
+        selected_tag = GitTagsVersionFormatter(self._tags_prefix).find_tag(tags, Version(version_str))
 
         # The commit hash has to be stored now, because after folder deletion there is no way to get it
         commit_hash = str(selected_tag.commit)
 
-        del selected_tag, repo
         rmtree(dst_path)
         return commit_hash

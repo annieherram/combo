@@ -4,7 +4,6 @@ import sys
 
 def main():
     my_path = sys.argv[1]
-    my_path = "C:/Combo/my_repos/tree_example/root"
 
     contrib_dir = os.path.join(my_path, "contrib")
     if os.path.exists(contrib_dir):

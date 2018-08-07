@@ -1,9 +1,9 @@
 from __future__ import print_function
-import git
 from dependency_importer import *
 from source_locator_server import *
 from combo_dependnecy import *
 from version import *
+import pygit2
 
 
 class DependencyAlreadyExisted(Exception):

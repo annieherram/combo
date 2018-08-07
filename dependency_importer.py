@@ -24,14 +24,15 @@ class GitDependency(DependencyBase):
     def clone(self, dst_path):
         self.assert_keywords(self.REMOTE_URL_KEYWORD, self.COMMIT_HASH_KEYWORD)
 
-        import git
+        import git_api
+        git_api.clone(self.dep_src.remote_url, dst_path, self.dep_src.commit_hash)
 
-        # Clone the dependency
-        repo = git.Repo.clone_from(getattr(self.dep_src, self.REMOTE_URL_KEYWORD), dst_path)
-
-        # Checkout to the requested commit
-        repo.head.reference = getattr(self.dep_src, self.COMMIT_HASH_KEYWORD)
-        repo.head.reset(working_tree=True)
+        # # Clone the dependency
+        # repo = git.Repo.clone_from(getattr(self.dep_src, self.REMOTE_URL_KEYWORD), dst_path)
+        #
+        # # Checkout to the requested commit
+        # repo.head.reference = getattr(self.dep_src, self.COMMIT_HASH_KEYWORD)
+        # repo.head.reset(working_tree=True)
 
         rmtree(os.path.join(dst_path, '.git'))
 
