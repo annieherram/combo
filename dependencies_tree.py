@@ -79,6 +79,14 @@ class DependenciesTree:
         return os.path.join(self._internal_working_dir,
                             dep.normalized_name_dir(), dep.normalized_version_dir())
 
+    def undecided_table_as_str(self):
+        result = ''
+        for undecided, details in self.undecided_table.items():
+            result += 'Dependency {} (Alive state: {}) has eliminators: {}'.format(
+                str(undecided), details['alive'], [str(x) for x in details['eliminators']]) + '\n'
+
+        return result
+
     def _add_node(self, dependency_node):
         if dependency_node not in self.nodes.values():
             self.nodes[dependency_node['value']] = dependency_node
@@ -195,7 +203,8 @@ class DependenciesTree:
                 # Perform the "mark deads" step of each node with the "key" value
                 for node in self.nodes.values():
                     if node['value'] == key:
-                        self._mark_deads(node)
+                        for son in self._get_sons(node):
+                            self._mark_deads(son)
 
     def _remove_deads_from_tree(self, head=None):
         if head is None:

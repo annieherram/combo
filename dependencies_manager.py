@@ -47,7 +47,13 @@ class DependenciesManager:
             copytree(src_path, dst_path)
 
     def _extern_from_tree(self):
-        relevant_dependencies = self._tree.values()
+        dependencies = self._tree.values()
 
-        for dep in relevant_dependencies:
+        instances = {dep.name: len(list(filter(lambda x: x.name == dep.name, dependencies))) for dep in dependencies}
+        multiple_versions = list(filter(lambda tup: tup[1] > 1, instances.items()))
+
+        if multiple_versions:
+            raise LookupError("Multiple versions found: {}".format(multiple_versions))
+
+        for dep in dependencies:
             self._extern_dependency(dep)
