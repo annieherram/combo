@@ -3,23 +3,44 @@ from dependency_importer import *
 from dependencies_tree import *
 
 
+class ComboMetadata:
+    METADATA_DIR_NAME = '.combo'
+
+    def __init__(self, project_path):
+        self.path = os.path.join(project_path, self.METADATA_DIR_NAME)
+        self.clones_dir = os.path.join(self.path, 'clones')
+
+        self.exists = os.path.exists(self.path)
+
+
 class DependenciesManager:
     def __init__(self, repo_path):
-        self._METADATA_DIR_NAME = '.combo'
-
         self._base_manifest = ManifestDetails(repo_path)
-        self._manifests = {self._base_manifest.name: self._base_manifest}
-
         self._repo_path = repo_path
 
         self._importer = DependencyImporter()
-        self._metadata_dir_path = os.path.join(repo_path, self._METADATA_DIR_NAME)
-        self._tree = DependenciesTree(self._importer, self._metadata_dir_path)
+        self._metadata = ComboMetadata(self._repo_path)
+        self._tree = DependenciesTree(self._importer, self._metadata.clones_dir)
+
+        # TODO: Temporary, should probably read data from metadata
+        if os.path.exists(self._base_manifest.output_dir):
+            rmtree(self._base_manifest.output_dir)
+        if os.path.exists(self._metadata.path):
+            rmtree(self._metadata.path)
+
+    def dirty(self):
+        """
+        Dirty repository means there is a difference between the current manifest on the working directory
+        and the versions cloned to the working directory
+        :return: A boolean indication for the dirty state
+        """
+        return True  # TODO: Implement dirty function
 
     def resolve(self):
-        """
-        Pre-resolve steps - check if "dirty"
-        """
+        # If the repository is not dirty, this means everything is up-to-date and there is nothing to do
+        if not self.dirty():
+            print('Project is already up to date')
+            return
 
         self._tree.build(self._base_manifest)
         self._tree.disconnect_outdated_versions()
