@@ -41,20 +41,20 @@ class DependenciesTree:
                 Out of the eliminators, save the critical eliminators of it,
                 which are the eliminators with a different major version.
                 Additionally, save an 'alive' flag which always starts as True,
-                and 'major_eliminated' which starts as None.
+                and 'major_eliminated' which starts as an empty set.
                 
                 undecided_table_example = {
                     "A-0.1": {
                         "eliminators": ["A-0.2", "A-1.0"], "criticals": ["A-1.0"],
-                        "alive": True, "major_eliminated": None
+                        "alive": True, "major_eliminated": set()
                     },
                     "A-0.2": {
                         "eliminators": ["A-1.0"], "criticals": ["A-1.0"],
-                        "alive": True, "major_eliminated": None
+                        "alive": True, "major_eliminated": set()
                     },
                     "B-0.1": {
                         "eliminators": ["B-0.2"], "criticals": [],
-                        "alive": True, "major_eliminated": None
+                        "alive": True, "major_eliminated": set()
                     }
                 }             
             '''
@@ -119,7 +119,7 @@ class DependenciesTree:
         result = ''
         for undecided, details in self._undecided_table.items():
             result += 'Dependency {}: alive={}, major_eliminated={}, eliminators={}, criticals={}'.format(
-                str(undecided), details['alive'], str(details['major_eliminated']),
+                str(undecided), details['alive'], [str(x) for x in details['major_eliminated']],
                 [str(x) for x in details['eliminators']], [str(x) for x in details['criticals']]) + '\n'
 
         return result
@@ -201,7 +201,7 @@ class DependenciesTree:
                     'eliminators': eliminators,
                     'criticals': find_critical(dep, eliminators),
                     'alive': True,
-                    'major_eliminated': None
+                    'major_eliminated': set()
                 }
 
     def _is_undecided(self, dep_value):
@@ -229,7 +229,7 @@ class DependenciesTree:
                 undecided['alive'] = False
                 # If the eliminator is critical, this means that if the undecided is relevant there is a problem
                 if head['value'] in undecided['criticals']:
-                    undecided['major_eliminated'] = head['value']
+                    undecided['major_eliminated'].add(head['value'])
 
         for son in self._get_sons(head):
             # Continue recursively
@@ -257,7 +257,7 @@ class DependenciesTree:
                     major_eliminator = self._undecided_table[son['value']]['major_eliminated']
                     if major_eliminator:
                         raise MajorVersionMismatch('Dependency {} could not be replaced by {}'.format(
-                            son['value'], major_eliminator))
+                            son['value'], ', '.join(map(str, major_eliminator))))
                 pop_list.append(son['value'])
 
         for son_to_pop in pop_list:
