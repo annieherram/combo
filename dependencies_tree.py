@@ -1,24 +1,21 @@
+from combo_general import *
 from combo_dependnecy import *
 from manifest_details import *
 from version import *
 
 
-class DependencyAlreadyExisted(Exception):
-    pass
-
-
-class DependencyVersionUpdated(Exception):
+class CircularDependency(ComboException):
     pass
 
 
 class DependenciesTree:
     def __init__(self, dependency_importer, internal_working_dir):
-        self._head_value = 'Root'
+        self.original_nodes = dict()
+        self.manifests = dict()
+
         self._importer = dependency_importer
         self._internal_working_dir = internal_working_dir
 
-        self.original_nodes = dict()
-        self.manifests = dict()
         self._dependencies = list()
         self._head = dict()
 
@@ -26,7 +23,7 @@ class DependenciesTree:
         """ Build the tree from the given manifest data recursively """
 
         # clone everything - recursive clone, keeping both older and newer versions. Create a tree in the process.
-        self._head = self._build_tree(self._head_value, base_manifest.sons())
+        self._head = self._build_tree(ComboRoot(), base_manifest.sons())
         self._dependencies = self._extract_values()
 
     def values(self):
@@ -109,11 +106,10 @@ class DependenciesTree:
     def _is_slashed(self):
         instances = {dep.name: len(list(filter(lambda x: x.name == dep.name, self._dependencies)))
                      for dep in self._dependencies}
-
         return all(count == 1 for count in instances.values())
 
     def __str__(self):
-        return self._tree_as_str()
+        return self._tree_as_str() + '\n'
 
     def get_clone_dir(self, dep):
         return os.path.join(self._internal_working_dir,
@@ -131,9 +127,8 @@ class DependenciesTree:
     def _add_node(self, dependency_node):
         if dependency_node not in self.original_nodes.values():
             self.original_nodes[dependency_node['value']] = dependency_node
-            return
 
-    def _build_tree(self, head_value, sons=list()):
+    def _build_tree(self, head_value, sons=list(), path=list()):
         """
         This is step #1.
         In this step, every dependency of the current manifest is going to be cloned, followed by his own dependencies.
@@ -142,8 +137,16 @@ class DependenciesTree:
 
         :param head_value: The content of the current node of the tree
         :param sons:       A list of the sons (dependencies) that should be added next
+        :param path:       The previous dependencies that has led here, used to identify circular dependencies
         """
+
         tree_head = {'value': head_value}
+        next_path = path + [head_value]
+
+        if head_value.name in [dep.name for dep in path]:
+            higher_dep = xfilter(lambda dep: dep.name == head_value.name, path)
+            raise CircularDependency('Dependency {} eventually requires {}'.format(higher_dep, head_value),
+                                     ' -> '.join(map(str, next_path)))
 
         for dep in sons:
             add_dep_node_flag = False
@@ -162,7 +165,7 @@ class DependenciesTree:
                 self._add_manifest(combo_dependency, dependency_manifest)
                 next_sons = dependency_manifest.sons()
 
-            tree_head[combo_dependency] = self._build_tree(combo_dependency, next_sons)
+            tree_head[combo_dependency] = self._build_tree(combo_dependency, next_sons, next_path)
 
             if add_dep_node_flag:
                 self._add_node(tree_head[combo_dependency])

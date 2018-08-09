@@ -1,0 +1,2 @@
+class ComboException(BaseException):
+    pass

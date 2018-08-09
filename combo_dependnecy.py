@@ -2,6 +2,14 @@ from __future__ import print_function
 from version import *
 
 
+class ComboRoot:
+    def __init__(self):
+        self.name = 'Root'
+
+    def __str__(self):
+        return self.name
+
+
 class ComboDep:
     def __init__(self, project_name, version):
         self.name = project_name

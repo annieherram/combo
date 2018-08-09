@@ -6,7 +6,7 @@ class MajorVersionMismatch(BaseException):
 
 
 class Version:
-    def __init__(self, tuple_or_str, prefix=''):
+    def __init__(self, tuple_or_str='1.0', prefix=''):
         if is_string(tuple_or_str):
             self._prefix = prefix
             self._tup = tuple(map(int, self._remove_prefix(tuple_or_str, prefix).split('.')))
