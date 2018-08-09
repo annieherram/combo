@@ -19,15 +19,10 @@ class DependenciesManager:
     def resolve(self):
         """
         Pre-resolve steps - check if "dirty"
-        Resolve algorithm steps:
         """
 
         self._tree.build(self._base_manifest)
-        print(self._tree, '\n')
-
         self._tree.disconnect_outdated_versions()
-        print(self._tree, '\n')
-
         self._extern_from_tree()
 
     def _get_dependency_dir(self, dep, internal=False):

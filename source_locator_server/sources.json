@@ -40,6 +40,11 @@
         {
             "type": "local_path",
             "path": "C:/Combo/my_repos/tree_example/a2"
+        },
+        "1.0":
+        {
+            "type": "local_path",
+            "path": "C:/Combo/my_repos/tree_example/a2"
         }
     },
     "B":
@@ -53,11 +58,11 @@
     },
     "C": {
         "general_type": "version_dependent",
-        "0.1": {
+        "1.0": {
             "type": "local_path",
             "path": "C:/Combo/my_repos/tree_example/c1"
         },
-        "0.2": {
+        "1.1": {
             "type": "local_path",
             "path": "C:/Combo/my_repos/tree_example/c2"
         }
@@ -68,12 +73,17 @@
         "0.1":
         {
             "type": "local_path",
-            "path": "C:/Combo/my_repos/tree_example/d1"
+            "path": "C:/Combo/my_repos/tree_example/d0-1"
         },
-        "0.2":
+        "1.0":
         {
             "type": "local_path",
-            "path": "C:/Combo/my_repos/tree_example/d2"
+            "path": "C:/Combo/my_repos/tree_example/d1-0"
+        },
+        "1.1":
+        {
+            "type": "local_path",
+            "path": "C:/Combo/my_repos/tree_example/d1-1"
         }
     },
     "E":

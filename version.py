@@ -29,7 +29,7 @@ class Version:
             raise TypeError('Non version types for: {}'.format(
                 filter(lambda ver: not isinstance(ver, Version), args)))
 
-        return all(args[i].major == args[i+1].major for i in range(len(args) - 1))
+        return len(set(ver.major for ver in args)) <= 1
 
     def __str__(self):
         return self.as_string()
@@ -37,8 +37,6 @@ class Version:
     def __lt__(self, other):
         if not isinstance(other, type(self)):
             raise TypeError('Type of {} should be {}'.format(other, type(self)))
-        if not self.same_major(self, other):
-            raise MajorVersionMismatch(self.as_string(), other.as_string())
         return self._tup < other._tup
 
     def __eq__(self, other):
