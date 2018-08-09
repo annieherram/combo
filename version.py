@@ -6,7 +6,7 @@ class MajorVersionMismatch(BaseException):
     pass
 
 
-class Version:
+class VersionNumber:
     default_prefix = ''
 
     def __init__(self, tuple_or_str='1.0', prefix=default_prefix):
@@ -29,9 +29,9 @@ class Version:
 
     @staticmethod
     def same_major(*args):
-        if not all(isinstance(ver, Version) for ver in args):
+        if not all(isinstance(ver, VersionNumber) for ver in args):
             raise TypeError('Non version types for: {}'.format(
-                filter(lambda ver: not isinstance(ver, Version), args)))
+                filter(lambda ver: not isinstance(ver, VersionNumber), args)))
 
         return len(set(ver.major for ver in args)) <= 1
 
@@ -47,6 +47,9 @@ class Version:
         if not isinstance(other, type(self)):
             raise TypeError('Type of {} should be {}'.format(other, type(self)))
         return self._tup == other._tup
+
+    def __le__(self, other):
+        return self < other or self == other
 
     def __ne__(self, other):
         return not self == other

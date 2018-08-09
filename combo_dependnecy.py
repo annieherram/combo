@@ -13,7 +13,7 @@ class ComboRoot:
 class ComboDep:
     def __init__(self, project_name, version):
         self.name = project_name
-        self.version = version if isinstance(version, Version) else Version(version)
+        self.version = version if isinstance(version, VersionNumber) else VersionNumber(version)
 
     def as_tuple(self):
         return self.name, self.version

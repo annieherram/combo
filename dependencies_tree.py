@@ -47,7 +47,7 @@ class UndecidedTable(dict):
 
     @staticmethod
     def find_critical(undecided, all_eliminators):
-        return list(filter(lambda elm: not Version.same_major(elm.version, undecided.version), all_eliminators))
+        return list(filter(lambda elm: not VersionNumber.same_major(elm.version, undecided.version), all_eliminators))
 
 
 class DependenciesTree:
