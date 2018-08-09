@@ -33,4 +33,5 @@ class ManifestDetails:
         assert isinstance(other, type(self))
         return dicts_equal(self.manifest, other.manifest)
 
-
+    def __ne__(self, other):
+        return not self == other
