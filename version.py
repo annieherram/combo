@@ -6,13 +6,16 @@ class MajorVersionMismatch(BaseException):
 
 
 class Version:
-    def __init__(self, tuple_or_str='1.0', prefix=''):
-        if is_string(tuple_or_str):
+    default_prefix = ''
+
+    def __init__(self, tuple_or_str='1.0', prefix=default_prefix):
+        if isinstance(tuple_or_str, compat.string_types):
             self._prefix = prefix
             self._tup = tuple(map(int, self._remove_prefix(tuple_or_str, prefix).split('.')))
             self.major = self._extract_major(self._tup)
         elif is_iterable(tuple_or_str):
             assert all(type(x) is int for x in tuple_or_str), 'Invalid version iterable: {}'.format(tuple_or_str)
+            self._prefix = self.default_prefix
             self._tup = tuple(tuple_or_str)
         else:
             raise TypeError('Invalid version type "{}" for parameter: {}'.format(type(tuple_or_str), tuple_or_str))

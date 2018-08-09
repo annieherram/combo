@@ -25,7 +25,7 @@ class ComboDep:
         return str(self.version).replace('.', '_')
 
     def __str__(self):
-        return "{}-{}".format(self.name, str(self.version))
+        return "({}, v{})".format(self.name, str(self.version))
 
     def __hash__(self):
         return hash(self.as_tuple())

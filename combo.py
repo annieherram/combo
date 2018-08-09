@@ -1,5 +1,5 @@
 from dependencies_manager import *
-import sys
+from compat import *
 
 
 def main():
