@@ -1,4 +1,5 @@
 from utils import *
+from compat import string_types
 
 
 class MajorVersionMismatch(BaseException):
@@ -9,7 +10,7 @@ class Version:
     default_prefix = ''
 
     def __init__(self, tuple_or_str='1.0', prefix=default_prefix):
-        if isinstance(tuple_or_str, compat.string_types):
+        if isinstance(tuple_or_str, string_types):
             self._prefix = prefix
             self._tup = tuple(map(int, self._remove_prefix(tuple_or_str, prefix).split('.')))
             self.major = self._extract_major(self._tup)
@@ -46,6 +47,9 @@ class Version:
         if not isinstance(other, type(self)):
             raise TypeError('Type of {} should be {}'.format(other, type(self)))
         return self._tup == other._tup
+
+    def __ne__(self, other):
+        return not self == other
 
     def __hash__(self):
         return hash(self._tup)

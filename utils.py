@@ -1,7 +1,6 @@
 import os
 import stat
 import shutil
-import compat
 
 
 class ObjectNotFound(LookupError):
