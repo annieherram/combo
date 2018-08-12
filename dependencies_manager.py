@@ -14,11 +14,11 @@ class ComboMetadata:
 
 
 class DependenciesManager:
-    def __init__(self, repo_path):
+    def __init__(self, repo_path, sources_json=None):
         self._base_manifest = ManifestDetails(repo_path)
         self._repo_path = repo_path
 
-        self._importer = DependencyImporter()
+        self._importer = DependencyImporter(sources_json)
         self._metadata = ComboMetadata(self._repo_path)
         self._tree = DependenciesTree(self._importer, self._metadata.clones_dir)
 

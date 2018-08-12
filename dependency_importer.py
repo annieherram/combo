@@ -44,14 +44,22 @@ class LocalPathDependency(DependencyBase):
 
 
 class DependencyImporter:
-    def __init__(self):
+    def __init__(self, user_sources=None):
         self._handlers = {
             'git': GitDependency,
             'local_path': LocalPathDependency
         }
 
+        self._external_server = user_sources is None
+        if not self._external_server:
+            # TODO: Should be independent from the server (There will be mutual code). currently goes to the "server"
+            self._sources = user_sources
+
     def clone(self, combo_dep, dst_path):
-        import_src = get_version_source(*combo_dep.as_tuple())
+        if self._external_server:
+            import_src = get_version_source(*combo_dep.as_tuple())
+        else:
+            import_src = get_version_source(*combo_dep.as_tuple(), self._sources)
 
         if import_src.src_type not in self._handlers:
             raise NotImplementedError('Can not import dependency with source type "{}"'.format(import_src.src_type))
