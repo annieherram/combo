@@ -9,50 +9,37 @@ class CircularDependency(ComboException):
     pass
 
 
-class UndecidedTable:
-    def __init__(self):
-        self._table = dict()
+class UndecidedTable(dict):
+    def __init__(self, dependencies=list()):
+        super(dict, self).__init__()
 
-    def __str__(self):
-        result = ''
-        for undecided, details in self._table.items():
-            result += 'Dependency {}: alive={}, major_eliminated={}, eliminators={}, criticals={}'.format(
-                str(undecided), details['alive'], [str(x) for x in details['major_eliminated']],
-                [str(x) for x in details['eliminators']], [str(x) for x in details['criticals']]) + '\n'
-        return result
-
-    def build(self, dependencies):
         for dep in dependencies:
             eliminators = [eliminator for eliminator in dependencies if self.is_eliminator(dep, eliminator)]
             if any(eliminators):
-                self._table[dep] = {
+                self[dep] = {
                     'eliminators': eliminators,
                     'criticals': self.find_critical(dep, eliminators),
                     'alive': True,
                     'major_eliminated': set()
                 }
 
-    def __contains__(self, dep):
-        return dep in self._table.keys()
-
-    def keys(self):
-        return self._table.keys()
-
-    def values(self):
-        return self._table.values()
-
-    def items(self):
-        return self._table.items()
+    def __str__(self):
+        result = ''
+        for undecided, details in self.items():
+            result += 'Dependency {}: alive={}, major_eliminated={}, eliminators={}, criticals={}'.format(
+                str(undecided), details['alive'], [str(x) for x in details['major_eliminated']],
+                [str(x) for x in details['eliminators']], [str(x) for x in details['criticals']]) + '\n'
+        return result
 
     def get(self, dep):
-        if dep not in self._table.keys():
+        if dep not in self.keys():
             raise KeyError('Dependency {} is not undecided'.format(dep))
-        return self._table[dep]
+        return self[dep]
 
     def is_alive(self, dep):
-        if dep not in self:
+        if dep not in self.keys():
             return True
-        return self._table[dep]['alive']
+        return self[dep]['alive']
 
     @staticmethod
     def is_eliminator(undecided, eliminator):
@@ -156,7 +143,7 @@ class DependenciesTree:
                     }
                 }             
             '''
-            self._undecideds.build(self._dependencies)
+            self._undecideds = UndecidedTable(self._dependencies)
 
             '''
             2. mark_deads - Go through the tree:
