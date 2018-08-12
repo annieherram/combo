@@ -24,16 +24,13 @@ class GitDependency(DependencyBase):
     def clone(self, dst_path):
         self.assert_keywords(self.REMOTE_URL_KEYWORD, self.COMMIT_HASH_KEYWORD)
 
-        import git
+        import git_api
 
         # Clone the dependency
-        repo = git.Repo.clone_from(getattr(self.dep_src, self.REMOTE_URL_KEYWORD), dst_path)
+        repo = git_api.GitRepo(dst_path)
+        repo.clone(getattr(self.dep_src, self.REMOTE_URL_KEYWORD), getattr(self.dep_src, self.COMMIT_HASH_KEYWORD))
 
-        # Checkout to the requested commit
-        repo.head.reference = getattr(self.dep_src, self.COMMIT_HASH_KEYWORD)
-        repo.head.reset(working_tree=True)
-
-        rmtree(os.path.join(dst_path, '.git'))
+        repo.close()
 
 
 class LocalPathDependency(DependencyBase):
@@ -48,7 +45,7 @@ class LocalPathDependency(DependencyBase):
 
 class DependencyImporter:
     def __init__(self):
-        self.handler_dict = {
+        self._handlers = {
             'git': GitDependency,
             'local_path': LocalPathDependency
         }
@@ -56,8 +53,13 @@ class DependencyImporter:
     def clone(self, combo_dep, dst_path):
         import_src = get_version_source(*combo_dep.as_tuple())
 
-        if import_src.src_type not in self.handler_dict:
+        if import_src.src_type not in self._handlers:
             raise NotImplementedError('Can not import dependency with source type "{}"'.format(import_src.src_type))
 
-        dependency_import_handler = self.handler_dict[import_src.src_type](import_src)
-        dependency_import_handler.clone(dst_path)
+        if os.path.exists(dst_path):
+            # If already imported, import can be skipped
+            return
+
+        handler_type = self._handlers[import_src.src_type]
+        import_handler = handler_type(import_src)
+        import_handler.clone(dst_path)

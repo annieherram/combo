@@ -25,8 +25,6 @@ class DependenciesManager:
         # TODO: Temporary, should probably read data from metadata
         if os.path.exists(self._base_manifest.output_dir):
             rmtree(self._base_manifest.output_dir)
-        if os.path.exists(self._metadata.path):
-            rmtree(self._metadata.path)
 
     def dirty(self):
         """

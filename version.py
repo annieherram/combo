@@ -1,18 +1,22 @@
 from utils import *
+from compat import string_types
 
 
 class MajorVersionMismatch(BaseException):
     pass
 
 
-class Version:
-    def __init__(self, tuple_or_str='1.0', prefix=''):
-        if is_string(tuple_or_str):
+class VersionNumber:
+    default_prefix = ''
+
+    def __init__(self, tuple_or_str='1.0', prefix=default_prefix):
+        if isinstance(tuple_or_str, string_types):
             self._prefix = prefix
             self._tup = tuple(map(int, self._remove_prefix(tuple_or_str, prefix).split('.')))
             self.major = self._extract_major(self._tup)
         elif is_iterable(tuple_or_str):
             assert all(type(x) is int for x in tuple_or_str), 'Invalid version iterable: {}'.format(tuple_or_str)
+            self._prefix = self.default_prefix
             self._tup = tuple(tuple_or_str)
         else:
             raise TypeError('Invalid version type "{}" for parameter: {}'.format(type(tuple_or_str), tuple_or_str))
@@ -25,9 +29,9 @@ class Version:
 
     @staticmethod
     def same_major(*args):
-        if not all(isinstance(ver, Version) for ver in args):
+        if not all(isinstance(ver, VersionNumber) for ver in args):
             raise TypeError('Non version types for: {}'.format(
-                filter(lambda ver: not isinstance(ver, Version), args)))
+                filter(lambda ver: not isinstance(ver, VersionNumber), args)))
 
         return len(set(ver.major for ver in args)) <= 1
 
@@ -43,6 +47,12 @@ class Version:
         if not isinstance(other, type(self)):
             raise TypeError('Type of {} should be {}'.format(other, type(self)))
         return self._tup == other._tup
+
+    def __le__(self, other):
+        return self < other or self == other
+
+    def __ne__(self, other):
+        return not self == other
 
     def __hash__(self):
         return hash(self._tup)

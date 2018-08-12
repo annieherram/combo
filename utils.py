@@ -1,6 +1,5 @@
 import os
 import stat
-import six
 import shutil
 
 
@@ -54,10 +53,6 @@ def is_in(x, y):
     if is_iterable(y):
         return x == y
     return x in y
-
-
-def is_string(s):
-    return isinstance(s, six.string_types)
 
 
 def dicts_equal(d1, d2):
