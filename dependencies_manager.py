@@ -15,8 +15,14 @@ class ComboMetadata:
 
 class DependenciesManager:
     def __init__(self, repo_path, sources_json=None):
-        self._base_manifest = ManifestDetails(repo_path)
         self._repo_path = repo_path
+        self._base_manifest = ManifestDetails(self._repo_path)
+
+        if not self._base_manifest.exists():
+            # Root directory must have base manifest
+            raise EnvironmentError("{} is not a combo repository".format(self._repo_path))
+        if not self._base_manifest.is_exec:
+            raise EnvironmentError("{} is not a combo root".format(self._repo_path))
 
         self._importer = DependencyImporter(sources_json)
         self._metadata = ComboMetadata(self._repo_path)
@@ -44,20 +50,23 @@ class DependenciesManager:
         self._tree.disconnect_outdated_versions()
         self._extern_from_tree()
 
-    def _get_dependency_dir(self, dep, internal=False):
+    def get_dependency_path(self, dependency_name):
+        return os.path.join(self._base_manifest.output_dir, ComboDep.normalize_name_dir(dependency_name))
+
+    def _dep_dir(self, dep, internal=False):
         if internal:
             return self._tree.get_clone_dir(dep)
         else:
-            return os.path.join(self._base_manifest.output_dir, dep.normalized_name_dir())
+            return self.get_dependency_path(dep.name)
 
     def _get_manifests(self):
         return self._tree.manifests
 
     def _extern_dependency(self, dep):
-        dst_path = self._get_dependency_dir(dep)
+        dst_path = self._dep_dir(dep)
 
         if not os.path.exists(dst_path):
-            src_path = self._get_dependency_dir(dep, True)
+            src_path = self._dep_dir(dep, True)
             copytree(src_path, dst_path)
 
     def _extern_from_tree(self):

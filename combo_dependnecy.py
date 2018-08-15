@@ -18,11 +18,19 @@ class ComboDep:
     def as_tuple(self):
         return self.name, self.version
 
+    @staticmethod
+    def normalize_name_dir(name):
+        return name.lower().replace(' ', '_')
+
+    @staticmethod
+    def normalize_version_dir(version):
+        return str(version).replace('.', '_')
+
     def normalized_name_dir(self):
-        return self.name.lower().replace(' ', '_')
+        return self.normalize_name_dir(self.name)
 
     def normalized_version_dir(self):
-        return str(self.version).replace('.', '_')
+        return self.normalize_version_dir(self.version)
 
     def __str__(self):
         return "({}, v{})".format(self.name, str(self.version))

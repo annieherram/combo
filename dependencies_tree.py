@@ -117,7 +117,6 @@ class DependenciesTree:
     def disconnect_outdated_versions(self):
         """ Remove all irrelevant nodes from the tree using the following algorithm: """
 
-        print(self)
         while not self._is_slashed():
             '''
             1. create_undecided_table:
@@ -174,9 +173,7 @@ class DependenciesTree:
                 If a "major_eliminated" node was removed "indirectly",
                 this is fine because the "major_eliminated" node wasn't required anyway.
             '''
-            print(self._undecideds)
             self._slash_deads()
-            print(self)
 
     def _extract_values(self, head=None):
         head = head or self._head
