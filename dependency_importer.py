@@ -5,13 +5,44 @@ Handles importing dependencies from multiple possible sources (git repository, z
 from source_locator_server import *
 
 
+def contact_server(project_name, version):
+    import socket
+    import struct
+    import json
+
+    target = 'localhost'
+    port = 9999
+
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    client.connect((target, port))
+
+    request = (project_name, str(version))
+    encoded = ';'.join(request).encode()
+    length = struct.pack('>i', len(encoded))
+
+    print(length, encoded)
+
+    client.send(length)
+    client.recv(4)  # Ack
+    client.send(encoded)
+
+    # receive the response data (4096 is recommended buffer size)
+    response = client.recv(4096)
+
+    x = json.loads(response.decode())
+    print(type(x), x)
+
+    return x
+
+
 class DependencyBase(object):
     def __init__(self, dependency_source):
         self.dep_src = dependency_source
 
     def assert_keywords(self, *keywords):
         for keyword in keywords:
-            assert hasattr(self.dep_src, keyword), 'Invalid import source, missing attribute "{}"'.format(keyword)
+            assert keyword in self.dep_src, 'Invalid import source, missing attribute "{}"'.format(keyword)
 
     def clone(self, dst_path):
         raise NotImplementedError
@@ -28,7 +59,7 @@ class GitDependency(DependencyBase):
 
         # Clone the dependency
         repo = git_api.GitRepo(dst_path)
-        repo.clone(getattr(self.dep_src, self.REMOTE_URL_KEYWORD), getattr(self.dep_src, self.COMMIT_HASH_KEYWORD))
+        repo.clone(self.dep_src[self.REMOTE_URL_KEYWORD], self.dep_src[self.COMMIT_HASH_KEYWORD])
 
         repo.close()
 
@@ -57,17 +88,19 @@ class DependencyImporter:
 
     def clone(self, combo_dep, dst_path):
         if self._external_server:
-            import_src = get_version_source(*combo_dep.as_tuple())
+            import_src = contact_server(*combo_dep.as_tuple())
         else:
-            import_src = get_version_source(*combo_dep.as_tuple(), self._sources)
+            print(combo_dep)
+            tup = combo_dep.as_tuple()
+            import_src = get_version_source(*tup, self._sources)
 
-        if import_src.src_type not in self._handlers:
+        if import_src['src_type'] not in self._handlers:
             raise NotImplementedError('Can not import dependency with source type "{}"'.format(import_src.src_type))
 
         if os.path.exists(dst_path):
             # If already imported, import can be skipped
             return
 
-        handler_type = self._handlers[import_src.src_type]
+        handler_type = self._handlers[import_src['src_type']]
         import_handler = handler_type(import_src)
         import_handler.clone(dst_path)

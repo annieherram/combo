@@ -17,7 +17,7 @@ class GitRepo:
 
     def empty(self):
         if not os.path.exists(self.local_path):
-            return  True
+            return True
         return len(os.listdir(self.local_path)) == 0
 
     def clone(self, remote_url, ref=None):
