@@ -90,11 +90,8 @@ class DependencyImporter:
         if self._external_server:
             import_src = contact_server(*combo_dep.as_tuple())
         else:
-            print(combo_dep)
-            tup = combo_dep.as_tuple()
-
             manual_source_locator = SourceLocator(self._sources)
-            import_src = vars(manual_source_locator.get_source(*tup))
+            import_src = vars(manual_source_locator.get_source(*combo_dep.as_tuple()))
 
         if import_src['src_type'] not in self._handlers:
             raise NotImplementedError('Can not import dependency with source type "{}"'.format(import_src.src_type))
