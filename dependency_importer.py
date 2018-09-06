@@ -3,37 +3,33 @@ Handles importing dependencies from multiple possible sources (git repository, z
 """
 
 from source_locator_server import *
+import socket
+import struct
+import json
+
+COMBO_SERVER_ADDRESS = ('localhost', 9999)
+MAX_RESPONSE_LENGTH = 4096
 
 
 def contact_server(project_name, version):
-    import socket
-    import struct
-    import json
-
-    target = 'localhost'
-    port = 9999
-
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect(COMBO_SERVER_ADDRESS)
 
-    client.connect((target, port))
+    request = ';'.join((project_name, str(version))).encode()
+    request_length = struct.pack('>i', len(request))
 
-    request = (project_name, str(version))
-    encoded = ';'.join(request).encode()
-    length = struct.pack('>i', len(encoded))
-
-    print(length, encoded)
-
-    client.send(length)
+    client.send(request_length)
     client.recv(4)  # Ack
-    client.send(encoded)
+    client.send(request)
 
-    # receive the response data (4096 is recommended buffer size)
-    response = client.recv(4096)
+    response = client.recv(MAX_RESPONSE_LENGTH)
+    if response.startswith(b'\x00\xde\xc1\x1e'):
+        print('davar')
+        return None
 
-    x = json.loads(response.decode())
-    print(type(x), x)
+    source = json.loads(response.decode())
 
-    return x
+    return source
 
 
 class DependencyBase(object):

@@ -49,6 +49,7 @@ class DependenciesManager:
         self._tree.build(self._base_manifest)
         self._tree.disconnect_outdated_versions()
         self._extern_from_tree()
+        print(self._tree)
 
     def get_dependency_path(self, dependency_name):
         return os.path.join(self._base_manifest.output_dir, ComboDep.normalize_name_dir(dependency_name))
