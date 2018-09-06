@@ -2,17 +2,22 @@ from __future__ import print_function
 from combo_core.version import *
 
 
-class ComboRoot:
-    def __init__(self):
-        self.name = 'Root'
+class ComboNode(object):
+    def __init__(self, name):
+        self.name = name
 
     def __str__(self):
         return self.name
 
 
-class ComboDep:
+class ComboRoot(ComboNode):
+    def __init__(self):
+        super(ComboRoot, self).__init__('Root')
+
+
+class ComboDep(ComboNode):
     def __init__(self, project_name, version):
-        self.name = project_name
+        super(ComboDep, self).__init__(project_name)
         self.version = version if isinstance(version, VersionNumber) else VersionNumber(version)
 
     def as_tuple(self):
