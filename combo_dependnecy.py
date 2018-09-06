@@ -1,5 +1,5 @@
 from __future__ import print_function
-from version import *
+from combo_core.version import *
 
 
 class ComboRoot:

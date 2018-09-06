@@ -2,13 +2,18 @@
 Handles importing dependencies from multiple possible sources (git repository, zip file, server, etc...)
 """
 
-from source_locator_server import *
+from combo_core.source_locator import *
 import socket
 import struct
 import json
+import os
 
 COMBO_SERVER_ADDRESS = ('localhost', 9999)
 MAX_RESPONSE_LENGTH = 4096
+
+
+class NackFromServer(ComboException):
+    pass
 
 
 def contact_server(project_name, version):
@@ -24,8 +29,7 @@ def contact_server(project_name, version):
 
     response = client.recv(MAX_RESPONSE_LENGTH)
     if response.startswith(b'\x00\xde\xc1\x1e'):
-        print('davar')
-        return None
+        raise NackFromServer()
 
     source = json.loads(response.decode())
 
@@ -49,9 +53,9 @@ class GitDependency(DependencyBase):
     COMMIT_HASH_KEYWORD = 'commit_hash'
 
     def clone(self, dst_path):
-        self.assert_keywords(self.REMOTE_URL_KEYWORD, self.COMMIT_HASH_KEYWORD)
+        from combo_core import git_api
 
-        import git_api
+        self.assert_keywords(self.REMOTE_URL_KEYWORD, self.COMMIT_HASH_KEYWORD)
 
         # Clone the dependency
         repo = git_api.GitRepo(dst_path)
@@ -88,7 +92,9 @@ class DependencyImporter:
         else:
             print(combo_dep)
             tup = combo_dep.as_tuple()
-            import_src = get_version_source(*tup, self._sources)
+
+            manual_source_locator = SourceLocator(self._sources)
+            import_src = vars(manual_source_locator.get_source(*tup))
 
         if import_src['src_type'] not in self._handlers:
             raise NotImplementedError('Can not import dependency with source type "{}"'.format(import_src.src_type))
