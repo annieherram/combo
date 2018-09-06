@@ -1,5 +1,5 @@
-from utils import *
-from compat import string_types
+from .utils import *
+from .compat import string_types
 
 
 class MajorVersionMismatch(BaseException):

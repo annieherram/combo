@@ -1,8 +1,8 @@
 from __future__ import print_function
-from combo_general import *
+from combo_core import *
 from combo_dependnecy import *
 from manifest_details import *
-from version import *
+from combo_core.version import *
 
 
 class CircularDependency(ComboException):

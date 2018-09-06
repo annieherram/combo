@@ -2,7 +2,38 @@
 Handles importing dependencies from multiple possible sources (git repository, zip file, server, etc...)
 """
 
-from source_locator_server import *
+from combo_core.source_locator import *
+import socket
+import struct
+import json
+import os
+
+COMBO_SERVER_ADDRESS = ('localhost', 9999)
+MAX_RESPONSE_LENGTH = 4096
+
+
+class NackFromServer(ComboException):
+    pass
+
+
+def contact_server(project_name, version):
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect(COMBO_SERVER_ADDRESS)
+
+    request = ';'.join((project_name, str(version))).encode()
+    request_length = struct.pack('>i', len(request))
+
+    client.send(request_length)
+    client.recv(4)  # Ack
+    client.send(request)
+
+    response = client.recv(MAX_RESPONSE_LENGTH)
+    if response.startswith(b'\x00\xde\xc1\x1e'):
+        raise NackFromServer()
+
+    source = json.loads(response.decode())
+
+    return source
 
 
 class DependencyBase(object):
@@ -11,7 +42,7 @@ class DependencyBase(object):
 
     def assert_keywords(self, *keywords):
         for keyword in keywords:
-            assert hasattr(self.dep_src, keyword), 'Invalid import source, missing attribute "{}"'.format(keyword)
+            assert keyword in self.dep_src, 'Invalid import source, missing attribute "{}"'.format(keyword)
 
     def clone(self, dst_path):
         raise NotImplementedError
@@ -22,13 +53,13 @@ class GitDependency(DependencyBase):
     COMMIT_HASH_KEYWORD = 'commit_hash'
 
     def clone(self, dst_path):
-        self.assert_keywords(self.REMOTE_URL_KEYWORD, self.COMMIT_HASH_KEYWORD)
+        from combo_core import git_api
 
-        import git_api
+        self.assert_keywords(self.REMOTE_URL_KEYWORD, self.COMMIT_HASH_KEYWORD)
 
         # Clone the dependency
         repo = git_api.GitRepo(dst_path)
-        repo.clone(getattr(self.dep_src, self.REMOTE_URL_KEYWORD), getattr(self.dep_src, self.COMMIT_HASH_KEYWORD))
+        repo.clone(self.dep_src[self.REMOTE_URL_KEYWORD], self.dep_src[self.COMMIT_HASH_KEYWORD])
 
         repo.close()
 
@@ -39,35 +70,34 @@ class LocalPathDependency(DependencyBase):
     def clone(self, dst_path):
         self.assert_keywords(self.PATH_KEYWORD)
 
-        src_path = getattr(self.dep_src, self.PATH_KEYWORD)
+        src_path = self.dep_src[self.PATH_KEYWORD]
         copytree(src_path, dst_path)
 
 
 class DependencyImporter:
-    def __init__(self, user_sources=None):
+    def __init__(self, sources_json=None):
         self._handlers = {
             'git': GitDependency,
             'local_path': LocalPathDependency
         }
 
-        self._external_server = user_sources is None
+        self._external_server = sources_json is None
         if not self._external_server:
-            # TODO: Should be independent from the server (There will be mutual code). currently goes to the "server"
-            self._sources = user_sources
+            self._source_locator = SourceLocator(sources_json)
 
     def clone(self, combo_dep, dst_path):
         if self._external_server:
-            import_src = get_version_source(*combo_dep.as_tuple())
+            import_src = contact_server(*combo_dep.as_tuple())
         else:
-            import_src = get_version_source(*combo_dep.as_tuple(), self._sources)
+            import_src = self._source_locator.get_source(*combo_dep.as_tuple()).as_dict()
 
-        if import_src.src_type not in self._handlers:
+        if import_src['src_type'] not in self._handlers:
             raise NotImplementedError('Can not import dependency with source type "{}"'.format(import_src.src_type))
 
         if os.path.exists(dst_path):
             # If already imported, import can be skipped
             return
 
-        handler_type = self._handlers[import_src.src_type]
+        handler_type = self._handlers[import_src['src_type']]
         import_handler = handler_type(import_src)
         import_handler.clone(dst_path)

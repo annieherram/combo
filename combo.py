@@ -1,4 +1,4 @@
-import compat
+import combo_core.compat
 from dependencies_manager import *
 
 import argparse

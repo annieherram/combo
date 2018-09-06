@@ -12,6 +12,8 @@ class MultipleObjectsFound(LookupError):
 
 
 def rmtree(top):
+    if not os.path.exists(top):
+        return
     for root, dirs, files in os.walk(top, topdown=False):
         for name in files:
             filename = os.path.join(root, name)
