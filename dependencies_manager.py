@@ -1,16 +1,7 @@
 from __future__ import print_function
 from dependency_importer import *
 from dependencies_tree import *
-
-
-class ComboMetadata:
-    METADATA_DIR_NAME = '.combo'
-
-    def __init__(self, project_path):
-        self.path = os.path.join(project_path, self.METADATA_DIR_NAME)
-        self.clones_dir = os.path.join(self.path, 'clones')
-
-        self.exists = os.path.exists(self.path)
+from combo_core.compat import appdata_dir
 
 
 class DependenciesManager:
@@ -22,8 +13,8 @@ class DependenciesManager:
         assert self._base_manifest.valid_as_root(), 'Root manifest cannot be combo root'
 
         self._importer = DependencyImporter(sources_json)
-        self._metadata = ComboMetadata(self._repo_path)
-        self._tree = DependenciesTree(self._importer, self._metadata.clones_dir)
+        self._clones_dir = os.path.join(appdata_dir, 'clones')
+        self._tree = DependenciesTree(self._importer, self._clones_dir)
 
         # TODO: Temporary, should probably read data from metadata
         if os.path.exists(self._base_manifest.output_dir):

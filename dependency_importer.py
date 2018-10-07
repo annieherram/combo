@@ -59,7 +59,13 @@ class GitDependency(DependencyBase):
 
         # Clone the dependency
         repo = git_api.GitRepo(dst_path)
-        repo.clone(self.dep_src[self.REMOTE_URL_KEYWORD], self.dep_src[self.COMMIT_HASH_KEYWORD])
+
+        try:
+            repo.clone(self.dep_src[self.REMOTE_URL_KEYWORD], self.dep_src[self.COMMIT_HASH_KEYWORD])
+        except BaseException as e:
+            # If there is an error, make sure the repo is still closed at the end
+            repo.close()
+            raise e
 
         repo.close()
 
@@ -107,4 +113,9 @@ class DependencyImporter:
 
         handler_type = self._handlers[import_src['src_type']]
         import_handler = handler_type(import_src)
-        import_handler.clone(dst_path)
+        try:
+            import_handler.clone(dst_path)
+        except BaseException as e:
+            # Delete the imported dependency in case of error, don't leave a corrupted one
+            utils.rmtree(dst_path)
+            raise e
