@@ -3,6 +3,7 @@ Handles importing dependencies from multiple possible sources (git repository, z
 """
 
 from combo_core.source_locator import *
+from combo_core.compat import appdata_dir
 import socket
 import struct
 import json
@@ -13,6 +14,10 @@ MAX_RESPONSE_LENGTH = 4096
 
 
 class NackFromServer(ComboException):
+    pass
+
+
+class NoDependencyOnAppData(ComboException):
     pass
 
 
@@ -45,7 +50,7 @@ class DependencyBase(object):
             assert keyword in self.dep_src, 'Invalid import source, missing attribute "{}"'.format(keyword)
 
     def clone(self, dst_path):
-        raise NotImplementedError
+        raise NotImplementedError()
 
 
 class GitDependency(DependencyBase):
@@ -98,7 +103,19 @@ class DependencyImporter:
         if not self._external_server:
             self._source_locator = SourceLocator(sources_json)
 
-    def clone(self, combo_dep, dst_path):
+        self._cached_clones_dir = os.path.join(appdata_dir, 'clones')
+
+    def _get_dep_cached_dir(self, dep):
+        return os.path.join(self._cached_clones_dir,
+                            dep.normalized_name_dir(), dep.normalized_version_dir())
+
+    def clone(self, combo_dep):
+        clone_dir = self._get_dep_cached_dir(combo_dep)
+
+        # If the requested import already exists in metadata, ignore it
+        if os.path.exists(clone_dir):
+            return clone_dir
+
         if self._external_server:
             import_src = contact_server(*combo_dep.as_tuple())
         else:
@@ -107,15 +124,20 @@ class DependencyImporter:
         if import_src['src_type'] not in self._handlers:
             raise NotImplementedError('Can not import dependency with source type "{}"'.format(import_src.src_type))
 
-        if os.path.exists(dst_path):
-            # If already imported, import can be skipped
-            return
-
         handler_type = self._handlers[import_src['src_type']]
         import_handler = handler_type(import_src)
         try:
-            import_handler.clone(dst_path)
+            import_handler.clone(clone_dir)
         except BaseException as e:
             # Delete the imported dependency in case of error, don't leave a corrupted one
-            utils.rmtree(dst_path)
+            utils.rmtree(clone_dir)
             raise e
+
+        return clone_dir
+
+    def get_clone_dir(self, dep):
+        path = self._get_dep_cached_dir(dep)
+        if not os.path.exists(path):
+            raise NoDependencyOnAppData('Dependency {} not found on AppData'.format(dep))
+
+        return path

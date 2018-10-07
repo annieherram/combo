@@ -55,12 +55,11 @@ class UndecidedTable(dict):
 
 
 class DependenciesTree:
-    def __init__(self, dependency_importer, internal_working_dir):
+    def __init__(self, dependency_importer):
         self.original_nodes = dict()
         self.manifests = dict()
 
         self._importer = dependency_importer
-        self._internal_working_dir = internal_working_dir
         self._undecideds = UndecidedTable()
 
         self._dependencies = list()
@@ -90,15 +89,16 @@ class DependenciesTree:
             for dep in sons:
                 add_dep_node_flag = False
                 combo_dependency = ComboDep(dep['name'], dep['version'])
-                dst_path = self.get_clone_dir(combo_dependency)
 
                 dependency_values = [dep_node['value'] for dep_node in self.original_nodes.values()]
                 if combo_dependency not in dependency_values:
                     add_dep_node_flag = True
-                    self._importer.clone(combo_dependency, dst_path)
+                    cached_clone = self._importer.clone(combo_dependency)
+                else:
+                    cached_clone = self._importer.get_clone_dir(combo_dependency)
 
                 # Clone the recursive dependencies of the current dependency
-                dependency_manifest = ManifestDetails(dst_path, combo_dependency)
+                dependency_manifest = ManifestDetails(cached_clone, combo_dependency)
 
                 if not dependency_manifest.valid_as_lib():
                     raise NotAllowedDependency('Dependency {} cannot be used as a library'.format(combo_dependency))
@@ -210,10 +210,6 @@ class DependenciesTree:
             return str(head['value']) + ': ' + (wrapped if sons else '{}')
 
         return recursive_str() + '\n'
-
-    def get_clone_dir(self, dep):
-        return os.path.join(self._internal_working_dir,
-                            dep.normalized_name_dir(), dep.normalized_version_dir())
 
     def _add_node(self, dependency_node):
         if dependency_node not in self.original_nodes.values():

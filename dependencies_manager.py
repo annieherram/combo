@@ -1,7 +1,6 @@
 from __future__ import print_function
 from dependency_importer import *
 from dependencies_tree import *
-from combo_core.compat import appdata_dir
 
 
 class DependenciesManager:
@@ -13,8 +12,7 @@ class DependenciesManager:
         assert self._base_manifest.valid_as_root(), 'Root manifest cannot be combo root'
 
         self._importer = DependencyImporter(sources_json)
-        self._clones_dir = os.path.join(appdata_dir, 'clones')
-        self._tree = DependenciesTree(self._importer, self._clones_dir)
+        self._tree = DependenciesTree(self._importer)
 
         # TODO: Temporary, should probably read data from metadata
         if os.path.exists(self._base_manifest.output_dir):
@@ -43,7 +41,7 @@ class DependenciesManager:
 
     def _dep_dir(self, dep, internal=False):
         if internal:
-            return self._tree.get_clone_dir(dep)
+            return self._importer.get_clone_dir(dep)
         else:
             return self.get_dependency_path(dep.name)
 
