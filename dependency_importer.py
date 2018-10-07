@@ -64,6 +64,10 @@ class GitDependency(DependencyBase):
         repo.close()
 
 
+class NonExistingLocalPath(ComboException):
+    pass
+
+
 class LocalPathDependency(DependencyBase):
     PATH_KEYWORD = 'local_path'
 
@@ -71,6 +75,9 @@ class LocalPathDependency(DependencyBase):
         self.assert_keywords(self.PATH_KEYWORD)
 
         src_path = self.dep_src[self.PATH_KEYWORD]
+        if not os.path.exists(src_path):
+            raise NonExistingLocalPath('Local path {} does not exist'.format(src_path))
+
         copytree(src_path, dst_path)
 
 

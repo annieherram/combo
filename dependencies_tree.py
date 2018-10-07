@@ -9,6 +9,10 @@ class CircularDependency(ComboException):
     pass
 
 
+class NotAllowedDependency(ComboException):
+    pass
+
+
 class UndecidedTable(dict):
     def __init__(self, dependencies=list()):
         super(dict, self).__init__()
@@ -94,11 +98,13 @@ class DependenciesTree:
                     self._importer.clone(combo_dependency, dst_path)
 
                 # Clone the recursive dependencies of the current dependency
-                next_sons = list()
-                dependency_manifest = ManifestDetails(dst_path)
-                if dependency_manifest.exists():
-                    self._add_manifest(combo_dependency, dependency_manifest)
-                    next_sons = dependency_manifest.sons()
+                dependency_manifest = ManifestDetails(dst_path, combo_dependency)
+
+                if not dependency_manifest.valid_as_lib():
+                    raise NotAllowedDependency('Dependency {} cannot be used as a library'.format(combo_dependency))
+
+                self._add_manifest(combo_dependency, dependency_manifest)
+                next_sons = dependency_manifest.sons()
 
                 tree_head[combo_dependency] = build_tree(combo_dependency, next_sons, next_path)
 

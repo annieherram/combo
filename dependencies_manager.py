@@ -16,13 +16,10 @@ class ComboMetadata:
 class DependenciesManager:
     def __init__(self, repo_path, sources_json=None):
         self._repo_path = repo_path
-        self._base_manifest = ManifestDetails(self._repo_path)
 
-        if not self._base_manifest.exists():
-            # Root directory must have base manifest
-            raise EnvironmentError("{} is not a combo repository".format(self._repo_path))
-        if not self._base_manifest.is_exec:
-            raise EnvironmentError("{} is not a combo root".format(self._repo_path))
+        # Root directory must have base manifest
+        self._base_manifest = ManifestDetails(self._repo_path, ComboRoot())
+        assert self._base_manifest.valid_as_root(), 'Root manifest cannot be combo root'
 
         self._importer = DependencyImporter(sources_json)
         self._metadata = ComboMetadata(self._repo_path)
@@ -49,7 +46,6 @@ class DependenciesManager:
         self._tree.build(self._base_manifest)
         self._tree.disconnect_outdated_versions()
         self._extern_from_tree()
-        print(self._tree)
 
     def get_dependency_path(self, dependency_name):
         return os.path.join(self._base_manifest.output_dir, ComboDep.normalize_name_dir(dependency_name))
