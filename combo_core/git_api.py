@@ -1,7 +1,11 @@
+from combo_core import *
 import git
 import gc
 import os
-import utils
+
+
+class ReferenceNotFound(ComboException):
+    pass
 
 
 class GitRepo:
@@ -33,7 +37,11 @@ class GitRepo:
             self.checkout(ref)
 
     def checkout(self, ref):
-        self._repo.head.reference = ref
+        try:
+            self._repo.head.reference = ref
+        except ValueError as e:
+            raise ReferenceNotFound(self._git_dir, e)
+
         self._repo.head.reset(working_tree=True)
 
     def tags(self):
