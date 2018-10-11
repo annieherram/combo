@@ -1,4 +1,5 @@
 import os
+import hashlib
 import stat
 import shutil
 
@@ -73,3 +74,18 @@ def dicts_equal(d1, d2):
         if d1[key] != d2[key]:
             return False
     return True
+
+
+def hash_dir(directory):
+    import hashlib, os
+    sha_hash = hashlib.md5()
+    if not os.path.exists(directory):
+        raise BaseException()  # TODO
+
+    for root, dirs, files in os.walk(directory):
+        for names in files:
+            with open(os.path.join(root, names), 'rb') as f:
+                buf = f.read()
+                sha_hash.update(hashlib.md5(buf).hexdigest())
+
+    return sha_hash.hexdigest()

@@ -122,8 +122,11 @@ class CachedData:
             json.dump(self._cached_projects, f)
 
     def add(self, dep):
-        storage = utils.get_dir_size(self.get_dep_cached_dir(dep))
-        self._cached_projects += [{str(dep): storage}]
+        directory = self.get_dep_cached_dir(dep)
+        storage_size = utils.get_dir_size(directory)
+        dep_hash = utils.hash_dir(directory)
+        dep_obj = {'name': str(dep), 'size': storage_size, 'hash': dep_hash}
+        self._cached_projects += [dep_obj]
         self._update_file()
 
     def apply_limit(self):
