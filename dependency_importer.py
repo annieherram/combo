@@ -4,6 +4,7 @@ Handles importing dependencies from multiple possible sources (git repository, z
 
 from combo_core.source_locator import *
 from combo_core.compat import appdata_dir
+from combo_dependnecy import *
 import socket
 import struct
 import json
@@ -92,6 +93,47 @@ class LocalPathDependency(DependencyBase):
         copytree(src_path, dst_path)
 
 
+class CachedData:
+    def __init__(self, clones_dir_name):
+        self._cache_size = 64 * 1024**2  # 64 MB
+        self._clones_dir = os.path.join(appdata_dir, clones_dir_name)
+        self._fifo_file_path = os.path.join(appdata_dir, 'cached_fifo.txt')
+
+        if not os.path.exists(self._fifo_file_path):
+            open(self._fifo_file_path, 'w').close()
+
+        with open(self._fifo_file_path, 'r') as f:
+            self._fifo = f.readlines()
+
+    def get_dep_cached_dir(self, dep):
+        return os.path.join(self._clones_dir,
+                            dep.normalized_name_dir(), dep.normalized_version_dir())
+
+    def _get_used_storage(self):
+        return utils.get_dir_size(self._clones_dir)
+
+    def _update_file(self):
+        with open(self._fifo_file_path, 'w') as f:
+            f.writelines(self._fifo or '')  # In case of an empty fifo
+
+    def add(self, dep):
+        self._fifo += [str(dep)]
+        self._update_file()
+
+    def apply_limit(self):
+        """
+        Delete dependencies from cache until the size limit is applicable
+        """
+        while self._get_used_storage() > self._cache_size:
+            dep_to_delete = ComboDep.destring(self._fifo[0])
+            dep_path = self.get_dep_cached_dir(dep_to_delete)
+            rmtree(dep_path)
+            self._fifo = self._fifo[1:]
+
+        # Update the file for the remaining lines
+        self._update_file()
+
+
 class DependencyImporter:
     def __init__(self, sources_json=None):
         self._handlers = {
@@ -103,14 +145,10 @@ class DependencyImporter:
         if not self._external_server:
             self._source_locator = SourceLocator(sources_json)
 
-        self._cached_clones_dir = os.path.join(appdata_dir, 'clones')
-
-    def _get_dep_cached_dir(self, dep):
-        return os.path.join(self._cached_clones_dir,
-                            dep.normalized_name_dir(), dep.normalized_version_dir())
+        self._cached_data = CachedData('clones')
 
     def clone(self, combo_dep):
-        clone_dir = self._get_dep_cached_dir(combo_dep)
+        clone_dir = self._cached_data.get_dep_cached_dir(combo_dep)
 
         # If the requested import already exists in metadata, ignore it
         if os.path.exists(clone_dir):
@@ -133,11 +171,15 @@ class DependencyImporter:
             utils.rmtree(clone_dir)
             raise e
 
+        self._cached_data.add(combo_dep)
         return clone_dir
 
     def get_clone_dir(self, dep):
-        path = self._get_dep_cached_dir(dep)
+        path = self._cached_data.get_dep_cached_dir(dep)
         if not os.path.exists(path):
             raise NoDependencyOnAppData('Dependency {} not found on AppData'.format(dep))
 
         return path
+
+    def cleanup(self):
+        self._cached_data.apply_limit()

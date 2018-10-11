@@ -66,3 +66,6 @@ class DependenciesManager:
 
         for dep in dependencies:
             self._extern_dependency(dep)
+
+        # Clean importer's temporary cached data after finished clones
+        self._importer.cleanup()
