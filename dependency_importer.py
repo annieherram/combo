@@ -97,13 +97,18 @@ class CachedData:
     def __init__(self, clones_dir_name):
         self._cache_size = 64 * 1024**2  # 64 MB
         self._clones_dir = os.path.join(appdata_dir, clones_dir_name)
-        self._fifo_file_path = os.path.join(appdata_dir, 'cached_fifo.txt')
+        self._json_file_path = os.path.join(appdata_dir, 'local_projects.json')
 
-        if not os.path.exists(self._fifo_file_path):
-            open(self._fifo_file_path, 'w').close()
+        # If the JSON file doesn't exist yet, create a default one
+        if not os.path.exists(self._json_file_path):
+            with open(self._json_file_path, 'w') as f:
+                # Default is an empty list
+                json.dump(list(), f)
 
-        with open(self._fifo_file_path, 'r') as f:
-            self._fifo = f.readlines()
+        with open(self._json_file_path, 'r') as f:
+            self._cached_projects = json.load(f)
+
+        assert type(self._cached_projects) is list, 'The local projects json should contain a list of projects'
 
     def get_dep_cached_dir(self, dep):
         return os.path.join(self._clones_dir,
@@ -113,11 +118,12 @@ class CachedData:
         return utils.get_dir_size(self._clones_dir)
 
     def _update_file(self):
-        with open(self._fifo_file_path, 'w') as f:
-            f.writelines(self._fifo or '')  # In case of an empty fifo
+        with open(self._json_file_path, 'w') as f:
+            json.dump(self._cached_projects, f)
 
     def add(self, dep):
-        self._fifo += [str(dep)]
+        storage = utils.get_dir_size(self.get_dep_cached_dir(dep))
+        self._cached_projects += [{str(dep): storage}]
         self._update_file()
 
     def apply_limit(self):
@@ -125,10 +131,10 @@ class CachedData:
         Delete dependencies from cache until the size limit is applicable
         """
         while self._get_used_storage() > self._cache_size:
-            dep_to_delete = ComboDep.destring(self._fifo[0])
+            dep_to_delete = ComboDep.destring(self._cached_projects[0])
             dep_path = self.get_dep_cached_dir(dep_to_delete)
             rmtree(dep_path)
-            self._fifo = self._fifo[1:]
+            self._cached_projects = self._cached_projects[1:]
 
         # Update the file for the remaining lines
         self._update_file()
@@ -176,8 +182,12 @@ class DependencyImporter:
 
     def get_clone_dir(self, dep):
         path = self._cached_data.get_dep_cached_dir(dep)
+
+        # Make sure there is a cached project for the selected dependency
         if not os.path.exists(path):
             raise NoDependencyOnAppData('Dependency {} not found on AppData'.format(dep))
+
+        # Validate the requested project's validity
 
         return path
 
