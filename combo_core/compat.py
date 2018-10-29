@@ -15,8 +15,8 @@ else:
 
 
 if sys.platform == 'win32':
-    appdata_dir = path.join(environ['APPDATA'], APP_NAME)
+    appdata_dir_path = path.join(environ['APPDATA'], APP_NAME)
 elif sys.platform.startswith('linux'):
-    appdata_dir = path.expanduser(path.join("~", "." + APP_NAME))
+    appdata_dir_path = path.expanduser(path.join("~", "." + APP_NAME))
 else:
     raise EnvironmentError('Unsupported platform detected: {}'.format(sys.platform))

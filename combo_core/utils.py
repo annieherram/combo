@@ -23,6 +23,17 @@ class Directory(object):
         target_path = os.path.abspath(os.path.join(self.path, *paths))
         return Directory(target_path)
 
+    def get_file(self, default_content=''):
+        if not self.exists():
+            if default_content is None:
+                raise EnvironmentError('File {} does not exist'.format(self.path))
+
+            with open(self.path, 'w') as f:
+                f.write(default_content)
+
+        assert not os.path.isdir(self.path), 'Requested to get directory {} as file'.format(self.path)
+        return self.path
+
     def copy_to(self, dst, symlinks=False, ignore=None):
         if not self.exists():
             raise BaseException()  # TODO

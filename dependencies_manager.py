@@ -37,7 +37,7 @@ class DependenciesManager:
         self._extern_from_tree()
 
     def get_dependency_path(self, dependency_name):
-        return os.path.join(self._base_manifest.output_dir, ComboDep.normalize_name_dir(dependency_name))
+        return self._base_manifest.output_dir.join(ComboDep.normalize_name_dir(dependency_name))
 
     def _dep_dir(self, dep, internal=False):
         if internal:
@@ -51,7 +51,7 @@ class DependenciesManager:
     def _extern_dependency(self, dep):
         dst_path = self._dep_dir(dep)
 
-        if not os.path.exists(dst_path):
+        if not dst_path.exists():
             src_path = self._dep_dir(dep, True)
             src_path.copy_to(dst_path)
 

@@ -11,27 +11,24 @@ class ReferenceNotFound(ComboException):
 class GitRepo:
     def __init__(self, local_path):
         self.local_path = local_path
-        self._git_dir = os.path.join(local_path, '.git')
+        self._git_dir = self.local_path.join('.git')
 
         self._repo = None
         self._tags = None
 
-    def metadata_exists(self):
-        return os.path.exists(self._git_dir)
-
     def empty(self):
-        if not os.path.exists(self.local_path):
+        if not self.local_path.exists():
             return True
-        return len(os.listdir(self.local_path)) == 0
+        return len(os.listdir(self.local_path.path)) == 0
 
     def clone(self, remote_url, ref=None):
         if not self.empty():
             raise EnvironmentError()
 
-        if not os.path.exists(self.local_path):
-            os.makedirs(self.local_path)
+        if not self.local_path.exists():
+            os.makedirs(self.local_path.path)
 
-        self._repo = git.Repo.clone_from(remote_url, self.local_path)
+        self._repo = git.Repo.clone_from(remote_url, self.local_path.path)
 
         if ref:
             self.checkout(ref)
@@ -52,9 +49,9 @@ class GitRepo:
         del self._tags, self._repo
         gc.collect()
 
-        if self.metadata_exists():
-            utils.rmtree(self._git_dir)
+        if self._git_dir.exists():
+            self._git_dir.remove()
 
     def delete(self):
         self.close()
-        utils.rmtree(self.local_path)
+        self.local_path.remove()

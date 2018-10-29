@@ -3,7 +3,7 @@ Handles importing dependencies from multiple possible sources (git repository, z
 """
 
 from combo_core.source_locator import *
-from combo_core.compat import appdata_dir
+from combo_core.compat import appdata_dir_path
 from combo_dependnecy import *
 import socket
 import struct
@@ -91,8 +91,8 @@ class LocalPathDependency(DependencyBase):
     def clone(self, dst_path):
         self.assert_keywords(self.PATH_KEYWORD)
 
-        src_path = self.dep_src[self.PATH_KEYWORD]
-        if not os.path.exists(src_path):
+        src_path = Directory(self.dep_src[self.PATH_KEYWORD])
+        if not src_path.exists():
             raise NonExistingLocalPath('Local path {} does not exist'.format(src_path))
 
         Directory(src_path).copy_to(dst_path)
@@ -101,13 +101,11 @@ class LocalPathDependency(DependencyBase):
 class CachedData:
     def __init__(self, clones_dir_name):
         self._cache_size = 64 * 1024**2  # 64 MB
-        self._clones_dir = Directory(os.path.join(appdata_dir, clones_dir_name))
-        self._json_file_path = os.path.join(appdata_dir, 'local_projects.json')
+        self.appdata_dir = Directory(appdata_dir_path)
+        self._clones_dir = self.appdata_dir.join(clones_dir_name)
 
         # If the JSON file doesn't exist yet, create a default one
-        if not os.path.exists(self._json_file_path):
-            with open(self._json_file_path, 'w') as f:
-                json.dump(dict(), f)
+        self._json_file_path = self.appdata_dir.join('local_projects.json').get_file(json.dumps(dict()))
 
         with open(self._json_file_path, 'r') as f:
             self._cached_projects = json.load(f)
@@ -115,6 +113,9 @@ class CachedData:
         assert isinstance(self._cached_projects, dict), 'The local projects json should contain a projects dictionary'
 
     def dep_stored_data(self, dep):
+        if str(dep) not in self._cached_projects:
+            raise AppDataManuallyEdited('Couldn\'t find dependency {} in stored data'.format(dep))
+
         return self._cached_projects[str(dep)]
 
     def exists(self, dep):
@@ -214,6 +215,7 @@ class DependencyImporter:
 
         handler_type = self._handlers[import_src['src_type']]
         import_handler = handler_type(import_src)
+
         try:
             import_handler.clone(clone_dir)
         except BaseException as e:
