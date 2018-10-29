@@ -12,6 +12,10 @@ class MultipleObjectsFound(LookupError):
     pass
 
 
+class ActionOnNonexistingDirectory(EnvironmentError):
+    pass
+
+
 class Directory(object):
     def __init__(self, path):
         self.path = path
@@ -36,7 +40,7 @@ class Directory(object):
 
     def copy_to(self, dst, symlinks=False, ignore=None):
         if not self.exists():
-            raise BaseException()  # TODO
+            raise ActionOnNonexistingDirectory(self.path)
 
         dst_path = dst.path if isinstance(dst, type(self)) else dst
 
@@ -78,23 +82,24 @@ class Directory(object):
         return self.size()
 
     def get_hash(self):
-        import hashlib, os
         sha_hash = hashlib.md5()
+        
         if not self.exists():
-            raise BaseException()  # TODO
+            raise ActionOnNonexistingDirectory(self.path)
 
         for root, dirs, files in os.walk(self.path):
             dirs.sort()
             files.sort()
             for names in files:
                 with open(os.path.join(root, names), 'rb') as f:
-                    buf = f.read()
-                    sha_hash.update(hashlib.md5(buf).hexdigest())
+                    for buf in iter(lambda: f.read(4096), b''):
+                        sha_hash.update(buf)
 
         return sha_hash.hexdigest()
 
     def __hash__(self):
-        return hash(self.get_hash())
+        # Masking the result to the limit of python's __hash__ function
+        return int(self.get_hash(), 16) & 0x7FFFFFFF
 
     def __str__(self):
         return self.path
