@@ -12,39 +12,73 @@ class MultipleObjectsFound(LookupError):
     pass
 
 
-def rmtree(top):
-    if not os.path.exists(top):
-        return
-    for root, dirs, files in os.walk(top, topdown=False):
-        for name in files:
-            filename = os.path.join(root, name)
-            os.chmod(filename, stat.S_IWUSR)
-            os.remove(filename)
-        for name in dirs:
-            os.rmdir(os.path.join(root, name))
-    os.rmdir(top)
 
 
-def copytree(src, dst, symlinks=False, ignore=None):
-    for item in os.listdir(src):
-        if not os.path.exists(dst):
-            os.makedirs(dst)
 
-        s = os.path.join(src, item)
-        d = os.path.join(dst, item)
-        if os.path.isdir(s):
-            shutil.copytree(s, d, symlinks, ignore)
-        else:
-            shutil.copy2(s, d)
+class Directory(object):
+    def __init__(self, path):
+        self.path = path
 
+    def exists(self):
+        return os.path.exists(self.path)
 
-def get_dir_size(start_path='.'):
-    total_size = 0
-    for dirpath, dirnames, filenames in os.walk(start_path):
-        for f in filenames:
-            fp = os.path.join(dirpath, f)
-            total_size += os.path.getsize(fp)
-    return total_size
+    def join(self, *paths):
+        return Directory(os.path.join(self.path, *paths))
+
+    def copy_to(self, dst, symlinks=False, ignore=None):
+        if not self.exists():
+            raise BaseException()  # TODO
+
+        for item in os.listdir(self.path):
+            if not os.path.exists(dst):
+                os.makedirs(dst)
+
+            s = os.path.join(self.path, item)
+            d = os.path.join(dst, item)
+            if os.path.isdir(s):
+                shutil.copytree(s, d, symlinks, ignore)
+            else:
+                shutil.copy2(s, d)
+
+        return Directory(dst)
+
+    def size(self):
+        total_size = 0
+
+        for dirpath, dirnames, filenames in os.walk(self.path):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                total_size += os.path.getsize(fp)
+        return total_size
+
+    def remove(self):
+        if not self.exists():
+            return
+        for root, dirs, files in os.walk(self.path, topdown=False):
+            for name in files:
+                filename = os.path.join(root, name)
+                os.chmod(filename, stat.S_IWUSR)
+                os.remove(filename)
+            for name in dirs:
+                os.rmdir(os.path.join(root, name))
+        os.rmdir(self.path)
+
+    def __len__(self):
+        return self.size()
+
+    def __hash__(self):
+        import hashlib, os
+        sha_hash = hashlib.md5()
+        if not self.exists():
+            raise BaseException()  # TODO
+
+        for root, dirs, files in os.walk(self.path):
+            for names in files:
+                with open(os.path.join(root, names), 'rb') as f:
+                    buf = f.read()
+                    sha_hash.update(hashlib.md5(buf).hexdigest())
+
+        return sha_hash.hexdigest()
 
 
 def xfilter(func, iterable):
@@ -74,18 +108,3 @@ def dicts_equal(d1, d2):
         if d1[key] != d2[key]:
             return False
     return True
-
-
-def hash_dir(directory):
-    import hashlib, os
-    sha_hash = hashlib.md5()
-    if not os.path.exists(directory):
-        raise BaseException()  # TODO
-
-    for root, dirs, files in os.walk(directory):
-        for names in files:
-            with open(os.path.join(root, names), 'rb') as f:
-                buf = f.read()
-                sha_hash.update(hashlib.md5(buf).hexdigest())
-
-    return sha_hash.hexdigest()
