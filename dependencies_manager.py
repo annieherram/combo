@@ -3,31 +3,20 @@ from dependency_importer import *
 from dependencies_tree import *
 
 
-class ComboMetadata:
-    METADATA_DIR_NAME = '.combo'
-
-    def __init__(self, project_path):
-        self.path = os.path.join(project_path, self.METADATA_DIR_NAME)
-        self.clones_dir = os.path.join(self.path, 'clones')
-
-        self.exists = os.path.exists(self.path)
-
-
 class DependenciesManager:
-    def __init__(self, repo_path, sources_json=None):
-        self._repo_path = repo_path
+    def __init__(self, repo_dir, sources_json=None):
+        self._repo_dir = repo_dir
 
         # Root directory must have base manifest
-        self._base_manifest = ManifestDetails(self._repo_path, ComboRoot())
+        self._base_manifest = ManifestDetails(self._repo_dir, ComboRoot())
         assert self._base_manifest.valid_as_root(), 'Root manifest cannot be combo root'
 
         self._importer = DependencyImporter(sources_json)
-        self._metadata = ComboMetadata(self._repo_path)
-        self._tree = DependenciesTree(self._importer, self._metadata.clones_dir)
+        self._tree = DependenciesTree(self._importer)
 
         # TODO: Temporary, should probably read data from metadata
-        if os.path.exists(self._base_manifest.output_dir):
-            rmtree(self._base_manifest.output_dir)
+        if self._base_manifest.output_dir.exists():
+            self._base_manifest.output_dir.remove()
 
     def dirty(self):
         """
@@ -48,11 +37,11 @@ class DependenciesManager:
         self._extern_from_tree()
 
     def get_dependency_path(self, dependency_name):
-        return os.path.join(self._base_manifest.output_dir, ComboDep.normalize_name_dir(dependency_name))
+        return self._base_manifest.output_dir.join(ComboDep.normalize_name_dir(dependency_name))
 
     def _dep_dir(self, dep, internal=False):
         if internal:
-            return self._tree.get_clone_dir(dep)
+            return self._importer.get_clone_dir(dep)
         else:
             return self.get_dependency_path(dep.name)
 
@@ -62,9 +51,9 @@ class DependenciesManager:
     def _extern_dependency(self, dep):
         dst_path = self._dep_dir(dep)
 
-        if not os.path.exists(dst_path):
+        if not dst_path.exists():
             src_path = self._dep_dir(dep, True)
-            copytree(src_path, dst_path)
+            src_path.copy_to(dst_path)
 
     def _extern_from_tree(self):
         dependencies = self._tree.values()
@@ -77,3 +66,6 @@ class DependenciesManager:
 
         for dep in dependencies:
             self._extern_dependency(dep)
+
+        # Clean importer's temporary cached data after finished clones
+        self._importer.cleanup()

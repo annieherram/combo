@@ -40,6 +40,13 @@ class ComboDep(ComboNode):
     def __str__(self):
         return "({}, v{})".format(self.name, str(self.version))
 
+    @staticmethod
+    def destring(str):
+        splitted = str.split(', v')
+        name = splitted[0][1:]
+        version = VersionNumber(splitted[1][:-1])
+        return ComboDep(name, version)
+
     def __hash__(self):
         return hash(self.as_tuple())
 

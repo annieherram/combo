@@ -31,11 +31,11 @@ class ManifestDetails:
     def __init__(self, dir_path, expected_manifest_value):
         assert isinstance(expected_manifest_value, ComboNode), 'Invalid expected manifest value type'
 
-        self.base_path = dir_path
-        self.file_path = os.path.join(dir_path, self.manifest_file_name)
+        self.base_path = dir_path if isinstance(dir_path, Directory) else Directory(dir_path)
+        self.file_path = self.base_path.join(self.manifest_file_name).path
 
         if not os.path.exists(self.file_path):
-            raise ManifestNotFound('{} is not a combo repository'.format(dir_path))
+            raise ManifestNotFound('{} is not a combo repository'.format(self.base_path))
 
         with open(self.file_path, 'r') as f:
             self.manifest = json.load(f)
@@ -55,7 +55,7 @@ class ManifestDetails:
             self.dependencies[dep[self.dependency_name_keyword]] = dep
 
         if self.valid_as_root():
-            self.output_dir = os.path.abspath(os.path.join(dir_path, self.manifest[self.output_dir_keyword]))
+            self.output_dir = self.base_path.join(self.manifest[self.output_dir_keyword])
 
         self.validate(expected_manifest_value)
 
