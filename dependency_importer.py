@@ -126,7 +126,7 @@ class CachedData:
 
         if found != expected:
             raise AppDataManuallyEdited(
-                'Dependency {}: expected directory {} to be {}, found {}'.format(dep, name, expected, found)
+                'Dependency {}: expected directory {} to be {}, found {}'.format(dep, name, expected, found))
 
     def valid(self, dep):
         if not self.exists(dep):
@@ -140,7 +140,6 @@ class CachedData:
         self._validate_dep_param(dep, hash, 'hash')
 
         return True
-
 
     def cached_dependency_location(self, dep):
         if not self.exists(dep):
@@ -202,7 +201,7 @@ class DependencyImporter:
         clone_dir = self._cached_data.dep_dir_path(combo_dep)
 
         # If the requested import already exists in metadata, ignore it
-        if os.path.exists(clone_dir):
+        if clone_dir.exists():
             return clone_dir
 
         if self._external_server:

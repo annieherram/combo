@@ -11,7 +11,7 @@ def main():
                         nargs='?', default=None)
     args = parser.parse_args()
 
-    DependenciesManager(args.path, args.sources_json).resolve()
+    DependenciesManager(Directory(args.path), args.sources_json).resolve()
 
 
 if __name__ == '__main__':

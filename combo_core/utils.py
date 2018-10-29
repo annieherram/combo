@@ -12,9 +12,6 @@ class MultipleObjectsFound(LookupError):
     pass
 
 
-
-
-
 class Directory(object):
     def __init__(self, path):
         self.path = path
@@ -23,24 +20,27 @@ class Directory(object):
         return os.path.exists(self.path)
 
     def join(self, *paths):
-        return Directory(os.path.join(self.path, *paths))
+        target_path = os.path.abspath(os.path.join(self.path, *paths))
+        return Directory(target_path)
 
     def copy_to(self, dst, symlinks=False, ignore=None):
         if not self.exists():
             raise BaseException()  # TODO
 
+        dst_path = dst.path if isinstance(dst, type(self)) else dst
+
         for item in os.listdir(self.path):
-            if not os.path.exists(dst):
-                os.makedirs(dst)
+            if not os.path.exists(dst_path):
+                os.makedirs(dst_path)
 
             s = os.path.join(self.path, item)
-            d = os.path.join(dst, item)
+            d = os.path.join(dst_path, item)
             if os.path.isdir(s):
                 shutil.copytree(s, d, symlinks, ignore)
             else:
                 shutil.copy2(s, d)
 
-        return Directory(dst)
+        return Directory(dst_path)
 
     def size(self):
         total_size = 0
@@ -66,19 +66,27 @@ class Directory(object):
     def __len__(self):
         return self.size()
 
-    def __hash__(self):
+    def get_hash(self):
         import hashlib, os
         sha_hash = hashlib.md5()
         if not self.exists():
             raise BaseException()  # TODO
 
         for root, dirs, files in os.walk(self.path):
+            dirs.sort()
+            files.sort()
             for names in files:
                 with open(os.path.join(root, names), 'rb') as f:
                     buf = f.read()
                     sha_hash.update(hashlib.md5(buf).hexdigest())
 
         return sha_hash.hexdigest()
+
+    def __hash__(self):
+        return hash(self.get_hash())
+
+    def __str__(self):
+        return self.path
 
 
 def xfilter(func, iterable):

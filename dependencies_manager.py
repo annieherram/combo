@@ -4,19 +4,19 @@ from dependencies_tree import *
 
 
 class DependenciesManager:
-    def __init__(self, repo_path, sources_json=None):
-        self._repo_path = repo_path
+    def __init__(self, repo_dir, sources_json=None):
+        self._repo_dir = repo_dir
 
         # Root directory must have base manifest
-        self._base_manifest = ManifestDetails(self._repo_path, ComboRoot())
+        self._base_manifest = ManifestDetails(self._repo_dir, ComboRoot())
         assert self._base_manifest.valid_as_root(), 'Root manifest cannot be combo root'
 
         self._importer = DependencyImporter(sources_json)
         self._tree = DependenciesTree(self._importer)
 
         # TODO: Temporary, should probably read data from metadata
-        if os.path.exists(self._base_manifest.output_dir):
-            rmtree(self._base_manifest.output_dir)
+        if self._base_manifest.output_dir.exists():
+            self._base_manifest.output_dir.remove()
 
     def dirty(self):
         """
@@ -53,7 +53,7 @@ class DependenciesManager:
 
         if not os.path.exists(dst_path):
             src_path = self._dep_dir(dep, True)
-            copytree(src_path, dst_path)
+            src_path.copy_to(dst_path)
 
     def _extern_from_tree(self):
         dependencies = self._tree.values()
