@@ -18,9 +18,6 @@ class NackFromServer(ComboException):
     pass
 
 
-class NoDependencyOnAppData(ComboException):
-    pass
-
 
 def contact_server(project_name, version):
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -80,6 +77,14 @@ class NonExistingLocalPath(ComboException):
     pass
 
 
+class AppDataManuallyEdited(ComboException):
+    pass
+
+
+class AppDataCloneManuallyDeleted(AppDataManuallyEdited):
+    pass
+
+
 class LocalPathDependency(DependencyBase):
     PATH_KEYWORD = 'local_path'
 
@@ -90,43 +95,85 @@ class LocalPathDependency(DependencyBase):
         if not os.path.exists(src_path):
             raise NonExistingLocalPath('Local path {} does not exist'.format(src_path))
 
-        copytree(src_path, dst_path)
+        Directory(src_path).copy_to(dst_path)
 
 
 class CachedData:
     def __init__(self, clones_dir_name):
         self._cache_size = 64 * 1024**2  # 64 MB
-        self._clones_dir = os.path.join(appdata_dir, clones_dir_name)
+        self._clones_dir = Directory(os.path.join(appdata_dir, clones_dir_name))
         self._json_file_path = os.path.join(appdata_dir, 'local_projects.json')
 
         # If the JSON file doesn't exist yet, create a default one
         if not os.path.exists(self._json_file_path):
             with open(self._json_file_path, 'w') as f:
-                # Default is an empty list
-                json.dump(list(), f)
+                json.dump(dict(), f)
 
         with open(self._json_file_path, 'r') as f:
             self._cached_projects = json.load(f)
 
-        assert type(self._cached_projects) is list, 'The local projects json should contain a list of projects'
+        assert isinstance(self._cached_projects, dict), 'The local projects json should contain a projects dictionary'
 
-    def get_dep_cached_dir(self, dep):
-        return os.path.join(self._clones_dir,
-                            dep.normalized_name_dir(), dep.normalized_version_dir())
+    def dep_stored_data(self, dep):
+        return self._cached_projects[str(dep)]
+
+    def exists(self, dep):
+        return self.dep_dir_path(dep).exists()
+
+    def _validate_dep_param(self, dep, func, name):
+        expected = self.dep_stored_data(dep)[name]
+        found = func(self.dep_dir_path(dep))
+
+        if found != expected:
+            raise AppDataManuallyEdited(
+                'Dependency {}: expected directory {} to be {}, found {}'.format(dep, name, expected, found)
+
+    def valid(self, dep):
+        if not self.exists(dep):
+            return False
+
+        if str(dep) in self._cached_projects:
+            raise AppDataManuallyEdited(
+                'Dependency {} was found in dictionary but not in clones directory'.format(dep))
+
+        self._validate_dep_param(dep, len, 'size')
+        self._validate_dep_param(dep, hash, 'hash')
+
+        return True
+
+
+    def cached_dependency_location(self, dep):
+        if not self.exists(dep):
+            raise AppDataCloneManuallyDeleted(dep)
+
+        # Check directory hash matches to know the directory is valid
+        self._validate_dep_param(dep, hash, 'hash')
+
+        return self.dep_dir_path(dep)
+
+    def remove(self, dep):
+        # Delete the dependency's directory if it exists
+        if self.dep_dir_path(dep).exists():
+            self.dep_dir_path(dep).remove()
+
+        # Remove the dependency from the json if exists and update the file
+        if str(dep) in self._cached_projects:
+            self._cached_projects.pop(str(dep))
+            self._update_file()
 
     def _get_used_storage(self):
-        return utils.get_dir_size(self._clones_dir)
+        return self._clones_dir.size()
 
     def _update_file(self):
         with open(self._json_file_path, 'w') as f:
-            json.dump(self._cached_projects, f)
+            json.dump(self._cached_projects, f, indent=4)
+
+    def dep_dir_path(self, dep):
+        return self._clones_dir.join(dep.normalized_name_dir(), dep.normalized_version_dir())
 
     def add(self, dep):
-        directory = self.get_dep_cached_dir(dep)
-        storage_size = utils.get_dir_size(directory)
-        dep_hash = utils.hash_dir(directory)
-        dep_obj = {'name': str(dep), 'size': storage_size, 'hash': dep_hash}
-        self._cached_projects += [dep_obj]
+        directory = self.dep_dir_path(dep)
+        self._cached_projects[str(dep)] = {'size': directory.size(), 'hash': hash(directory)}
         self._update_file()
 
     def apply_limit(self):
@@ -134,13 +181,8 @@ class CachedData:
         Delete dependencies from cache until the size limit is applicable
         """
         while self._get_used_storage() > self._cache_size:
-            dep_to_delete = ComboDep.destring(self._cached_projects[0])
-            dep_path = self.get_dep_cached_dir(dep_to_delete)
-            rmtree(dep_path)
-            self._cached_projects = self._cached_projects[1:]
-
-        # Update the file for the remaining lines
-        self._update_file()
+            dep_to_remove = ComboDep.destring(self._cached_projects.keys()[0])
+            self.remove(dep_to_remove)
 
 
 class DependencyImporter:
@@ -157,7 +199,7 @@ class DependencyImporter:
         self._cached_data = CachedData('clones')
 
     def clone(self, combo_dep):
-        clone_dir = self._cached_data.get_dep_cached_dir(combo_dep)
+        clone_dir = self._cached_data.dep_dir_path(combo_dep)
 
         # If the requested import already exists in metadata, ignore it
         if os.path.exists(clone_dir):
@@ -177,20 +219,18 @@ class DependencyImporter:
             import_handler.clone(clone_dir)
         except BaseException as e:
             # Delete the imported dependency in case of error, don't leave a corrupted one
-            utils.rmtree(clone_dir)
+            clone_dir.remove()
             raise e
 
         self._cached_data.add(combo_dep)
         return clone_dir
 
     def get_clone_dir(self, dep):
-        path = self._cached_data.get_dep_cached_dir(dep)
-
-        # Make sure there is a cached project for the selected dependency
-        if not os.path.exists(path):
-            raise NoDependencyOnAppData('Dependency {} not found on AppData'.format(dep))
-
-        # Validate the requested project's validity
+        try:
+            path = self._cached_data.cached_dependency_location(dep)
+        except AppDataManuallyEdited:
+            self._cached_data.remove(dep)
+            path = self.clone(dep)
 
         return path
 
