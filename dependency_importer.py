@@ -226,7 +226,7 @@ class DependencyImporter:
         self._cached_data.add(combo_dep)
         return clone_dir
 
-    def get_clone_dir(self, dep):
+    def get_cached_path(self, dep):
         try:
             path = self._cached_data.cached_dependency_location(dep)
         except AppDataManuallyEdited:

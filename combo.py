@@ -53,6 +53,7 @@ def main():
     chosen_command = commands[args.command]
     chosen_command(dependencies_manager)
 
+    dependencies_manager.cleanup()
     print('Done')
 
 
