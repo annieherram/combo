@@ -88,10 +88,16 @@ class Directory(object):
             raise ActionOnNonexistingDirectory(self.path)
 
         for root, dirs, files in os.walk(self.path):
+            # This is sorted for determined results between all platforms, must be sorted here
             dirs.sort()
             files.sort()
+
             for names in files:
-                with open(os.path.join(root, names), 'rb') as f:
+                file_path = os.path.join(root, names)
+                path_to_hash = os.path.relpath(file_path, self.path)
+                sha_hash.update(path_to_hash.encode())
+
+                with open(file_path, 'rb') as f:
                     for buf in iter(lambda: f.read(4096), b''):
                         sha_hash.update(buf)
 
