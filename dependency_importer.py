@@ -153,8 +153,7 @@ class CachedData:
 
     def remove(self, dep):
         # Delete the dependency's directory if it exists
-        if self.dep_dir_path(dep).exists():
-            self.dep_dir_path(dep).remove()
+        self.dep_dir_path(dep).delete()
 
         # Remove the dependency from the json if exists and update the file
         if str(dep) in self._cached_projects:
@@ -204,6 +203,8 @@ class DependencyImporter:
         # If the requested import already exists in metadata, ignore it
         if clone_dir.exists():
             return clone_dir
+
+        print('Copying dependency {} into Combo\'s cache'.format(combo_dep))
 
         if self._external_server:
             import_src = contact_server(*combo_dep.as_tuple())

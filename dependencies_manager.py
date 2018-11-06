@@ -42,7 +42,7 @@ class DependenciesManager:
     def resolve(self):
         # If the repository is not dirty, this means everything is up-to-date and there is nothing to do
         if not self.dirty(silent=True):
-            print('Project is already up to date')
+            print('Project is already up-to-date')
             return
 
         self._initialize_tree()
@@ -62,14 +62,15 @@ class DependenciesManager:
         return self._tree.manifests
 
     def _extern_dependency(self, dep):
-        print('Updating dependency {}'.format(dep))
         dst_path = self.get_dependency_path(dep.name)
 
-        if not dst_path.exists():
-            src_path = self._importer.get_cached_path(dep)
-            src_path.copy_to(dst_path)
-        else:
-            print('Externing an existing dependency, Im not sure if this is valid yet')
+        if dst_path.exists():
+            raise UnhandledComboException(
+                'Trying to extern dependency {} which already existed at {}'.format(dep, dst_path))
+
+        print('Adding dependency {} into {}'.format(dep, dst_path))
+        src_path = self._importer.get_cached_path(dep)
+        src_path.copy_to(dst_path)
 
     @staticmethod
     def _check_for_multiple_versions(dependencies):
@@ -85,6 +86,7 @@ class DependenciesManager:
 
         for dep in dependencies:
             if not self._compare_dep_content(dep):
+                print('Removing deprecated depencency {}'.format(dep))
                 self.get_dependency_path(dep.name).delete()
                 self._extern_dependency(dep)
 

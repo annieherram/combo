@@ -7,3 +7,7 @@ class ComboException(BaseException):
 
 class RequestedVersionNotFound(ComboException):
     pass
+
+
+class UnhandledComboException(BaseException):
+    pass

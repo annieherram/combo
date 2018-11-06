@@ -50,8 +50,8 @@ class GitRepo:
         gc.collect()
 
         if self._git_dir.exists():
-            self._git_dir.remove()
+            self._git_dir.delete()
 
     def delete(self):
         self.close()
-        self.local_path.remove()
+        self.local_path.delete()
