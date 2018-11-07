@@ -5,5 +5,5 @@ class ComboException(BaseException):
     pass
 
 
-class RequestedVersionNotFound(ComboException):
+class UnhandledComboException(BaseException):
     pass

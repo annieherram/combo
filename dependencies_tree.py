@@ -64,6 +64,10 @@ class DependenciesTree:
 
         self._dependencies = list()
         self._head = dict()
+        self._done = False
+
+    def ready(self):
+        return self._done
 
     def build(self, base_manifest):
         """ Build the tree from the given manifest data recursively """
@@ -95,7 +99,7 @@ class DependenciesTree:
                     add_dep_node_flag = True
                     cached_clone = self._importer.clone(combo_dependency)
                 else:
-                    cached_clone = self._importer.get_clone_dir(combo_dependency)
+                    cached_clone = self._importer.get_cached_path(combo_dependency)
 
                 # Clone the recursive dependencies of the current dependency
                 dependency_manifest = ManifestDetails(cached_clone, combo_dependency)
@@ -180,6 +184,8 @@ class DependenciesTree:
                 this is fine because the "major_eliminated" node wasn't required anyway.
             '''
             self._slash_deads()
+
+        self._done = True
 
     def _extract_values(self, head=None):
         head = head or self._head

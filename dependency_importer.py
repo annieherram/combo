@@ -5,38 +5,8 @@ Handles importing dependencies from multiple possible sources (git repository, z
 from combo_core.source_locator import *
 from combo_core.compat import appdata_dir_path
 from combo_dependnecy import *
-import socket
-import struct
+from server_communicator import *
 import json
-import os
-
-COMBO_SERVER_ADDRESS = ('localhost', 9999)
-MAX_RESPONSE_LENGTH = 4096
-
-
-class NackFromServer(ComboException):
-    pass
-
-
-
-def contact_server(project_name, version):
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect(COMBO_SERVER_ADDRESS)
-
-    request = ';'.join((project_name, str(version))).encode()
-    request_length = struct.pack('>i', len(request))
-
-    client.send(request_length)
-    client.recv(4)  # Ack
-    client.send(request)
-
-    response = client.recv(MAX_RESPONSE_LENGTH)
-    if response.startswith(b'\x00\xde\xc1\x1e'):
-        raise NackFromServer()
-
-    source = json.loads(response.decode())
-
-    return source
 
 
 class DependencyBase(object):
@@ -153,8 +123,7 @@ class CachedData:
 
     def remove(self, dep):
         # Delete the dependency's directory if it exists
-        if self.dep_dir_path(dep).exists():
-            self.dep_dir_path(dep).remove()
+        self.dep_dir_path(dep).delete()
 
         # Remove the dependency from the json if exists and update the file
         if str(dep) in self._cached_projects:
@@ -192,9 +161,11 @@ class DependencyImporter:
             'local_path': LocalPathDependency
         }
 
-        self._external_server = sources_json is None
-        if not self._external_server:
-            self._source_locator = SourceLocator(sources_json)
+        if sources_json is None:
+            self._source_locator = ServerSourceLocator(COMBO_SERVER_ADDRESS)
+        else:
+            self._source_locator = JsonSourceLocator(sources_json)
+        assert isinstance(self._source_locator, SourceLocator), 'Invalid source locator type'
 
         self._cached_data = CachedData('clones')
 
@@ -205,11 +176,9 @@ class DependencyImporter:
         if clone_dir.exists():
             return clone_dir
 
-        if self._external_server:
-            import_src = contact_server(*combo_dep.as_tuple())
-        else:
-            import_src = self._source_locator.get_source(*combo_dep.as_tuple()).as_dict()
+        print('Caching dependency {}'.format(combo_dep))
 
+        import_src = self._source_locator.get_source(*combo_dep.as_tuple())
         if import_src['src_type'] not in self._handlers:
             raise NotImplementedError('Can not import dependency with source type "{}"'.format(import_src.src_type))
 
@@ -220,13 +189,13 @@ class DependencyImporter:
             import_handler.clone(clone_dir)
         except BaseException as e:
             # Delete the imported dependency in case of error, don't leave a corrupted one
-            clone_dir.remove()
+            clone_dir.delete()
             raise e
 
         self._cached_data.add(combo_dep)
         return clone_dir
 
-    def get_clone_dir(self, dep):
+    def get_cached_path(self, dep):
         try:
             path = self._cached_data.cached_dependency_location(dep)
         except AppDataManuallyEdited:

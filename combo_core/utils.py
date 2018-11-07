@@ -18,14 +18,23 @@ class ActionOnNonexistingDirectory(EnvironmentError):
 
 class Directory(object):
     def __init__(self, path):
-        self.path = path
+        self.path = os.path.abspath(path)
+
+    def name(self):
+        return os.path.split(self.path)[-1]
 
     def exists(self):
         return os.path.exists(self.path)
 
+    def is_dir(self):
+        return os.path.isdir(self.path)
+
     def join(self, *paths):
         target_path = os.path.abspath(os.path.join(self.path, *paths))
         return Directory(target_path)
+
+    def sons(self):
+        return [self.join(x) for x in os.listdir(self.path) if self.join(x).is_dir()]
 
     def get_file(self, default_content=''):
         if not self.exists():
@@ -66,7 +75,7 @@ class Directory(object):
                 total_size += os.path.getsize(fp)
         return total_size
 
-    def remove(self):
+    def delete(self):
         if not self.exists():
             return
         for root, dirs, files in os.walk(self.path, topdown=False):
@@ -81,6 +90,9 @@ class Directory(object):
     def __len__(self):
         return self.size()
 
+    def relative_to(self, other):
+        return os.path.relpath(self.path, other.path)
+
     def get_hash(self):
         sha_hash = hashlib.md5()
         
@@ -88,10 +100,16 @@ class Directory(object):
             raise ActionOnNonexistingDirectory(self.path)
 
         for root, dirs, files in os.walk(self.path):
+            # This is sorted for determined results between all platforms, must be sorted here
             dirs.sort()
             files.sort()
+
             for names in files:
-                with open(os.path.join(root, names), 'rb') as f:
+                file_path = os.path.join(root, names)
+                path_to_hash = os.path.relpath(file_path, self.path)
+                sha_hash.update(path_to_hash.encode())
+
+                with open(file_path, 'rb') as f:
                     for buf in iter(lambda: f.read(4096), b''):
                         sha_hash.update(buf)
 
@@ -103,6 +121,13 @@ class Directory(object):
 
     def __str__(self):
         return self.path
+
+    def __eq__(self, other):
+        assert isinstance(other, type(self))
+        return hash(self) == hash(other)
+
+    def __ne__(self, other):
+        return not self == other
 
 
 def xfilter(func, iterable):
