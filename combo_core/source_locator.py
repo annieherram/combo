@@ -61,6 +61,11 @@ class VersionDependentSourceSupplier:
 
 
 class SourceLocator(object):
+    def get_source(self, project_name, version):
+        raise NotImplementedError()
+
+
+class JsonSourceLocator(SourceLocator):
     IDENTIFIER_TYPE_KEYWORD = 'general_type'
 
     def __init__(self, json_path):
@@ -89,4 +94,4 @@ class SourceLocator(object):
         source_supplier_type = self._supported_src_suppliers[project_src_type]
         source_supplier = source_supplier_type(project_name, project_details)
         source = source_supplier.get_source(str(version))
-        return source
+        return source.as_dict()

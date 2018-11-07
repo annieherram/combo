@@ -19,11 +19,13 @@ def is_dirty(manager):
 
 def check_for_updates(manager):
     print('Checking for updates')
+    print('No implemented yet')
     print(manager)
 
 
 def delete_cache(manager):
     print('Deleting cached AppData')
+    print('No implemented yet')
     print(manager)
 
 
@@ -47,6 +49,9 @@ def main():
 
     if args.path is None:
         print('Working directory is', work_dir)
+
+    if args.sources_json is None:
+        print('Sources json was not specified. Combo server will be contacted for sources')
 
     dependencies_manager = DependenciesManager(work_dir, args.sources_json)
 
