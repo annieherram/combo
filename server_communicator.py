@@ -35,5 +35,10 @@ class ServerSourceLocator(SourceLocator):
         return source
 
     def get_source(self, project_name, version):
-        return self.contact_server(project_name, version)
+        try:
+            source = self.contact_server(project_name, version)
+        except NackFromServer:
+            raise UndefinedProject('Server could not locate project {} with version {}'.format(project_name, version))
+
+        return source
 

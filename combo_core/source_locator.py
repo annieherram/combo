@@ -2,7 +2,11 @@ from combo_core import *
 import json
 
 
-class UndefinedProject(BaseException):
+class UndefinedProject(ComboException):
+    pass
+
+
+class UndefinedProjectVersion(ComboException):
     pass
 
 
@@ -46,7 +50,7 @@ class VersionDependentSourceSupplier:
 
     def get_source(self, version_str):
         if version_str not in self._specific_versions_dict:
-            raise RequestedVersionNotFound('Version {} could not be found for project {}'.format(
+            raise UndefinedProjectVersion('Version {} could not be found for project {}'.format(
                 version_str, self._project_name))
 
         specific_version_details = self._specific_versions_dict[version_str]

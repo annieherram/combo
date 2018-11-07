@@ -13,8 +13,8 @@ def resolve(manager):
 
 
 def is_dirty(manager):
-    print('Checking if dirty')
-    manager.is_dirty()
+    print('Checking if the repository is dirty')
+    manager.is_dirty(verbose=True)
 
 
 def check_for_updates(manager):
@@ -55,11 +55,13 @@ def main():
 
     dependencies_manager = DependenciesManager(work_dir, args.sources_json)
 
+    print('----------------------------------------------------------------------------------')
     chosen_command = commands[args.command]
     chosen_command(dependencies_manager)
 
     dependencies_manager.cleanup()
     print('Done')
+    print('----------------------------------------------------------------------------------')
 
 
 if __name__ == '__main__':

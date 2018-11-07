@@ -24,7 +24,7 @@ class DependenciesManager:
             self._tree.build(self._base_manifest)
             self._tree.disconnect_outdated_versions()
 
-    def dirty(self, silent=False):
+    def is_dirty(self, verbose=False):
         """
         Dirty repository means there is a difference between the current manifest on the working directory
         and the versions cloned to the working directory
@@ -32,16 +32,25 @@ class DependenciesManager:
         """
         self._initialize_tree()
 
-        is_dirty = not self._compare_content_with_tree()
+        mismatches = self._compare_content_with_tree()
+        dirty = any(mismatches)
 
-        if not silent:
-            print('is_dirty result is {}'.format(is_dirty))
+        if verbose:
+            if dirty:
+                print('The repository is dirty\n'
+                      'Use \'combo resolve\' to update unresolved dependencies')
+                for mismatch in mismatches:
+                    print('\t', mismatch['type'], ':', mismatch['value'])
+            else:
+                print('The repository is not dirty, no need to resolve')
 
-        return is_dirty
+        return dirty
+
+    # def corrupted(self,):
 
     def resolve(self):
         # If the repository is not dirty, this means everything is up-to-date and there is nothing to do
-        if not self.dirty(silent=True):
+        if not self.is_dirty():
             print('Project is already up-to-date')
             return
 
@@ -86,7 +95,7 @@ class DependenciesManager:
 
         for dep in dependencies:
             if not self._compare_dep_content(dep):
-                print('Removing deprecated depencency {}'.format(dep))
+                print('Removing deprecated dependency {}'.format(dep.name))
                 self.get_dependency_path(dep.name).delete()
                 self._extern_dependency(dep)
 
@@ -103,18 +112,45 @@ class DependenciesManager:
         contrib_dirs = self._base_manifest.output_dir.sons()
         dependencies = self._tree.values()
 
+        tree_dep_names = [self.get_dependency_path(d.name).name() for d in dependencies]
+        contrib_dir_names = [d.name() for d in contrib_dirs]
+
+        mismatches = []
+
         # Amount
-        if len(contrib_dirs) != len(dependencies):
-            return False
+        contrib_dirs_advantage = len(contrib_dirs) > len(dependencies)
+        if contrib_dirs_advantage > 0:
+            mismatches += [{'type': 'More contrib directories than tree dependencies',
+                            'value': contrib_dirs_advantage}]
+        elif contrib_dirs_advantage < 0:
+            mismatches += [{'type': 'More tree dependencies than contrib directories',
+                            'value': -contrib_dirs_advantage}]
 
         # Directory names
-        contrib_paths = [x.path for x in contrib_dirs]
-        if any(self.get_dependency_path(dep.name).path not in contrib_paths for dep in dependencies):
-            return False
+        for tree_dep_name in tree_dep_names:
+            if tree_dep_name not in contrib_dir_names:
+                mismatches += [{'type': 'Dependency from tree missing from contrib', 'value': tree_dep_name}]
+        for contrib_dir_name in contrib_dir_names:
+            if contrib_dir_name not in tree_dep_names:
+                mismatches += [{'type': 'Directory from contrib does not exist in dependencies tree',
+                                'value': contrib_dir_name}]
+
+        if mismatches:
+            return mismatches
+
+        """ If we got to this stage, this means the dependencies from the tree
+            and the directories from contrib are the same, at least by dependency name
+            (not necessarily by version and content) """
+
+        # Sanity check
+        tree_dep_names.sort()
+        contrib_dir_names.sort()
+        if tree_dep_names != contrib_dir_names:
+            raise UnhandledComboException('Unhandled mismatch between dependency names')
 
         # Content
         for dep in dependencies:
             if not self._compare_dep_content(dep):
-                return False
+                mismatches += [{'type': 'Modified content', 'value': dep.name}]
 
-        return True
+        return mismatches

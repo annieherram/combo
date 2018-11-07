@@ -20,6 +20,9 @@ class Directory(object):
     def __init__(self, path):
         self.path = os.path.abspath(path)
 
+    def name(self):
+        return os.path.split(self.path)[-1]
+
     def exists(self):
         return os.path.exists(self.path)
 
@@ -86,6 +89,9 @@ class Directory(object):
 
     def __len__(self):
         return self.size()
+
+    def relative_to(self, other):
+        return os.path.relpath(self.path, other.path)
 
     def get_hash(self):
         sha_hash = hashlib.md5()

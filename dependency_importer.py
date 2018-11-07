@@ -176,7 +176,7 @@ class DependencyImporter:
         if clone_dir.exists():
             return clone_dir
 
-        print('Copying dependency {} into Combo\'s cache'.format(combo_dep))
+        print('Caching dependency {}'.format(combo_dep))
 
         import_src = self._source_locator.get_source(*combo_dep.as_tuple())
         if import_src['src_type'] not in self._handlers:
@@ -189,7 +189,7 @@ class DependencyImporter:
             import_handler.clone(clone_dir)
         except BaseException as e:
             # Delete the imported dependency in case of error, don't leave a corrupted one
-            clone_dir.remove()
+            clone_dir.delete()
             raise e
 
         self._cached_data.add(combo_dep)

@@ -42,7 +42,7 @@ class ManifestDetails:
 
         for kw in self.required_manifest_keywords:
             if kw not in self.manifest:
-                raise InvalidManifest('Manifest "{}" missing keyword "{}"'.format(expected_manifest_value, kw))
+                raise InvalidManifest('The manifest of "{}" missing keyword "{}"'.format(expected_manifest_value, kw))
 
         self.name = self.manifest[self.name_keyword]
         self.version = self.manifest[self.version_keyword]
