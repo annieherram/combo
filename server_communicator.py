@@ -1,8 +1,6 @@
-from combo_core import *
 from combo_core.source_locator import *
 import socket
 import struct
-import json
 
 COMBO_SERVER_ADDRESS = ('localhost', 9999)
 MAX_RESPONSE_LENGTH = 4096

@@ -4,7 +4,7 @@ Handles importing dependencies from multiple possible sources (git repository, z
 
 from combo_core.source_locator import *
 from combo_core.compat import appdata_dir_path
-from combo_dependnecy import *
+from combo_nodes import *
 from server_communicator import *
 import json
 
@@ -154,7 +154,7 @@ class CachedData:
             self.remove(dep_to_remove)
 
 
-class DependencyImporter:
+class Importer:
     def __init__(self, sources_json=None):
         self._handlers = {
             'git': GitDependency,

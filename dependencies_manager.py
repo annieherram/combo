@@ -1,6 +1,6 @@
 from __future__ import print_function
-from dependency_importer import *
-from dependencies_tree import *
+from importer import *
+from combo_tree import *
 
 
 class DependenciesManager:
@@ -8,11 +8,11 @@ class DependenciesManager:
         self._repo_dir = repo_dir
 
         # Root directory must have base manifest
-        self._base_manifest = ManifestDetails(self._repo_dir, ComboRoot())
+        self._base_manifest = Manifest(self._repo_dir, ComboRoot())
         assert self._base_manifest.valid_as_root(), 'Root manifest cannot be combo root'
 
-        self._importer = DependencyImporter(sources_json)
-        self._tree = DependenciesTree(self._importer)
+        self._importer = Importer(sources_json)
+        self._tree = ComboTree(self._importer)
         self._tree_initialized = False
 
     def cleanup(self):

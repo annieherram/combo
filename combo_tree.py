@@ -1,7 +1,7 @@
 from __future__ import print_function
 from combo_core import *
-from combo_dependnecy import *
-from manifest_details import *
+from combo_nodes import *
+from manifest import *
 from combo_core.version import *
 
 
@@ -54,7 +54,7 @@ class UndecidedTable(dict):
         return list(filter(lambda elm: not VersionNumber.same_major(elm.version, undecided.version), all_eliminators))
 
 
-class DependenciesTree:
+class ComboTree:
     def __init__(self, dependency_importer):
         self.original_nodes = dict()
         self.manifests = dict()
@@ -102,7 +102,7 @@ class DependenciesTree:
                     cached_clone = self._importer.get_cached_path(combo_dependency)
 
                 # Clone the recursive dependencies of the current dependency
-                dependency_manifest = ManifestDetails(cached_clone, combo_dependency)
+                dependency_manifest = Manifest(cached_clone, combo_dependency)
 
                 if not dependency_manifest.valid_as_lib():
                     raise NotAllowedDependency('Dependency {} cannot be used as a library'.format(combo_dependency))

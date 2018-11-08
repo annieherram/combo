@@ -1,6 +1,6 @@
 from combo_core import *
 from combo_core.version import *
-from combo_dependnecy import *
+from combo_nodes import *
 import json
 
 
@@ -16,7 +16,7 @@ class ComboDependencyMismatch(ComboException):
     pass
 
 
-class ManifestDetails:
+class Manifest:
     manifest_file_name = 'combo_manifest.json'
     output_dir_keyword = 'output_directory'
 
@@ -28,8 +28,8 @@ class ManifestDetails:
     dependency_name_keyword = 'name'
     required_dependency_keywords = [dependency_name_keyword]
 
-    def __init__(self, dir_path, expected_manifest_value):
-        assert isinstance(expected_manifest_value, ComboNode), 'Invalid expected manifest value type'
+    def __init__(self, dir_path, expected_combo_node):
+        assert isinstance(expected_combo_node, ComboNode), 'Invalid expected manifest value type'
 
         self.base_path = dir_path if isinstance(dir_path, Directory) else Directory(dir_path)
         self.file_path = self.base_path.join(self.manifest_file_name).path
@@ -42,7 +42,7 @@ class ManifestDetails:
 
         for kw in self.required_manifest_keywords:
             if kw not in self.manifest:
-                raise InvalidManifest('The manifest of "{}" missing keyword "{}"'.format(expected_manifest_value, kw))
+                raise InvalidManifest('The manifest of "{}" missing keyword "{}"'.format(expected_combo_node, kw))
 
         self.name = self.manifest[self.name_keyword]
         self.version = self.manifest[self.version_keyword]
@@ -57,7 +57,7 @@ class ManifestDetails:
         if self.valid_as_root():
             self.output_dir = self.base_path.join(self.manifest[self.output_dir_keyword])
 
-        self.validate(expected_manifest_value)
+        self.validate(expected_combo_node)
 
     def validate(self, expected_manifest_value):
         if isinstance(expected_manifest_value, ComboDep):
