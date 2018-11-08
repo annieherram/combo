@@ -28,15 +28,15 @@ class DependenciesManager:
         """
         Dirty repository means there is a difference between the current manifest on the working directory
         and the versions cloned to the working directory
+        :param verbose: print outputs flag
         :return: A boolean indication for the dirty state
         """
         self._initialize_tree()
 
         mismatches = self._compare_content_with_tree()
-        dirty = any(mismatches)
 
         if verbose:
-            if dirty:
+            if mismatches:
                 print('The repository is dirty\n'
                       'Use \'combo resolve\' to update unresolved dependencies')
                 for mismatch in mismatches:
@@ -44,9 +44,17 @@ class DependenciesManager:
             else:
                 print('The repository is not dirty, no need to resolve')
 
-        return dirty
+        return any(mismatches)
 
-    # def corrupted(self,):
+    def is_corrupted(self):
+        """
+        Corrupted repository means that a dependency was manually edited from the working directory.
+        This cannot always be detected, as it required a cached "last resolved manifest".
+        Thus, a corrupted state cannot be detected after cloning a project, or after pulling
+        a version which have changed the dependencies.
+        :return: A boolean indication for the corruption state
+        """
+        pass
 
     def resolve(self):
         # If the repository is not dirty, this means everything is up-to-date and there is nothing to do
