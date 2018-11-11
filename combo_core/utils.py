@@ -36,10 +36,16 @@ class Directory(object):
     def sons(self):
         return [self.join(x) for x in os.listdir(self.path) if self.join(x).is_dir()]
 
+    def up(self):
+        return Directory(os.path.dirname(self.path))
+
     def get_file(self, default_content=''):
         if not self.exists():
             if default_content is None:
                 raise EnvironmentError('File {} does not exist'.format(self.path))
+
+            if not self.up().exists():
+                os.makedirs(self.up().path)
 
             with open(self.path, 'w') as f:
                 f.write(default_content)

@@ -1,5 +1,4 @@
 from combo_core import *
-from combo_core.version import *
 from combo_nodes import *
 import json
 
@@ -65,7 +64,7 @@ class Manifest:
                 raise ComboDependencyMismatch('Manifest name mismatch. expected {}, found {}'
                                               .format(expected_manifest_value.name, self.name))
             if self.version != str(expected_manifest_value.version):
-                raise ComboDependencyMismatch('Manifest {} version mismatch. expected {}, found {}'
+                raise ComboDependencyMismatch('Manifest "{}" version mismatch. expected {}, found {}'
                                               .format(self.name, str(expected_manifest_value.version), self.version))
 
     def sons(self):

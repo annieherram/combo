@@ -40,3 +40,23 @@ class ServerSourceLocator(SourceLocator):
 
         return source
 
+    def all_sources(self):
+        def full_json():
+            d = {
+                "(Core Library, v2.1)": {
+                    "hash": 1507179887,
+                    "size": 126
+                },
+                "(Lib A, v1.7)": {
+                    "hash": 501194260,
+                    "size": 229
+                },
+                "(Lib B, v1.4)": {
+                    "hash": 1555234999,
+                    "size": 221
+                }
+            }
+
+            return json.dumps(d)
+
+        return json.loads(full_json())

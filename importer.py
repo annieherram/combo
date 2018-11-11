@@ -2,7 +2,6 @@
 Handles importing dependencies from multiple possible sources (git repository, zip file, server, etc...)
 """
 
-from combo_core.source_locator import *
 from combo_core.compat import appdata_dir_path
 from combo_nodes import *
 from server_communicator import *
@@ -52,6 +51,10 @@ class AppDataManuallyEdited(ComboException):
 
 
 class AppDataCloneManuallyDeleted(AppDataManuallyEdited):
+    pass
+
+
+class ServerUnavailable(ComboException):
     pass
 
 
@@ -161,7 +164,8 @@ class Importer:
             'local_path': LocalPathDependency
         }
 
-        if sources_json is None:
+        self._server_available = sources_json is None
+        if self._server_available:
             self._source_locator = ServerSourceLocator(COMBO_SERVER_ADDRESS)
         else:
             self._source_locator = JsonSourceLocator(sources_json)
@@ -194,6 +198,13 @@ class Importer:
 
         self._cached_data.add(combo_dep)
         return clone_dir
+
+    def get_all_sources_map(self):
+        if not isinstance(self._source_locator, ServerSourceLocator):
+            raise ServerUnavailable('Unable to get all sources map without combo server')
+
+        # TODO: Contact the server to get the actual map
+        return self._source_locator.all_sources()
 
     def get_cached_path(self, dep):
         try:
