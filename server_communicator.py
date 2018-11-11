@@ -51,6 +51,10 @@ class ServerSourceLocator(SourceLocator):
                     "hash": 501194260,
                     "size": 229
                 },
+                "(Lib A, v1.6)": {
+                    "hash": 1836199491,
+                    "size": 220
+                },
                 "(Lib B, v1.4)": {
                     "hash": 1555234999,
                     "size": 221

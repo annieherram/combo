@@ -50,6 +50,7 @@ class DependenciesManager:
         if self.is_corrupted():
             # TODO: A dependency can be both dirty an corrupted if the reason is a different dependency.
             # We still have to check the rest of them for dirtiness
+            print('No informative message yet. repository is corrupted')
             return False
 
         mismatches = self._compare_content_with_tree()
@@ -87,9 +88,10 @@ class DependenciesManager:
                 # Look for the hash in the sources from the server
                 relevant_sources = {key: val for key, val in all_sources.items()
                                     if ComboDep.destring(key).name == dep.name}
-                if hash(self.get_dependency_path(dep.name)) not in [x['hash'] for x in relevant_sources.values()]:
-                    raise CorruptedDependency('Content found in dependency {} does not match any known version'
-                                              .format(dep.name))
+                dep_hash = hash(self.get_dependency_path(dep.name))
+                if dep_hash not in [x['hash'] for x in relevant_sources.values()]:
+                    raise CorruptedDependency('Content found in dependency "{}" does not match any known version'
+                                              .format(dep.name), dep_hash)
 
     def is_corrupted(self):
         """
@@ -204,8 +206,8 @@ class DependenciesManager:
 
         # Content
         for dep in dependencies:
-            if dep.name in contrib_dir_names:
+            if self.get_dependency_path(dep.name).name() in contrib_dir_names:
                 if not self._compare_dep_content(dep):
-                    mismatches += [{'type': 'Modified content', 'value': dep.name}]
+                    mismatches += [{'type': self.MISMATCH_TYPES['Modified content'], 'value': dep.name}]
 
         return mismatches

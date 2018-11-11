@@ -34,6 +34,8 @@ class Directory(object):
         return Directory(target_path)
 
     def sons(self):
+        if not self.is_dir():
+            return list()
         return [self.join(x) for x in os.listdir(self.path) if self.join(x).is_dir()]
 
     def up(self):
