@@ -1,68 +1,85 @@
 from __future__ import print_function
 
 import combo_core.compat
-from dependencies_manager import *
-import os
-
 import argparse
+from dependencies_manager import *
 
 
-def resolve(manager):
-    print('Resolving')
-    manager.resolve()
+class ComboCommands(object):
+    def __init__(self):
+        self._main_parser = argparse.ArgumentParser(description='Combo dependencies manager')
 
+        self.add_subparsers()
+        self._args = self._main_parser.parse_args()
 
-def is_dirty(manager):
-    print('Checking if the repository is dirty')
-    manager.is_dirty(verbose=True)
+        self._args.command()
+        print('Done')
 
+    def add_subparsers(self):
+        subparsers = self._main_parser.add_subparsers()
 
-def check_for_updates(manager):
-    print('Checking for updates')
-    print('No implemented yet')
-    print(manager)
+        def add_manager_subparser_arguments(subparser):
+            subparser.add_argument('--sources-json', '-j',
+                                   help='An optional local sources json file instead of using the server',
+                                   nargs='?', default=None)
+            subparser.add_argument('--path', '-p', help='The path of the resolve repository',
+                                   nargs='?', default=None)
 
+        # Resolve
+        resolve_parser = subparsers.add_parser('resolve')
+        add_manager_subparser_arguments(resolve_parser)
+        resolve_parser.set_defaults(command=self.resolve)
 
-def delete_cache(manager):
-    print('Deleting cached AppData')
-    print('No implemented yet')
-    print(manager)
+        # Is dirty
+        is_dirty_parser = subparsers.add_parser('is-dirty')
+        add_manager_subparser_arguments(is_dirty_parser)
+        is_dirty_parser.set_defaults(command=self.is_dirty)
 
+        # Check for updates
+        check_for_updates_parser = subparsers.add_parser('check-for-updates')
+        check_for_updates_parser.set_defaults(command=self.check_for_updates)
 
-commands = {
-    'resolve': resolve,
-    'is_dirty': is_dirty,
-    'check_for_updates': resolve,
-    'delete_cache': resolve
-}
+        # Check for updates
+        delete_cache_parser = subparsers.add_parser('delete-cache')
+        delete_cache_parser.set_defaults(command=self.delete_cache)
 
+    def get_dependencies_manager(self):
+        work_dir = Directory(self._args.path or os.path.curdir)
 
-def main():
-    parser = argparse.ArgumentParser(description='Combo arguments')
-    parser.add_argument('command', help='[{}]'.format(' / '.join(commands.keys())))
-    parser.add_argument('--sources-json', '-j', help='An optional local sources json file instead of using the server',
-                        nargs='?', default=None)
-    parser.add_argument('--path', '-p', help='The path of the resolve repository', nargs='?', default=None)
+        if self._args.path is None:
+            print('Working directory is', work_dir)
 
-    args = parser.parse_args()
-    work_dir = Directory(args.path or os.path.curdir)
+        if self._args.sources_json is None:
+            print('Sources json was not specified. Combo server will be contacted for sources')
 
-    if args.path is None:
-        print('Working directory is', work_dir)
+        return DependenciesManager(work_dir, self._args.sources_json)
 
-    if args.sources_json is None:
-        print('Sources json was not specified. Combo server will be contacted for sources')
+    def resolve(self):
+        manager = self.get_dependencies_manager()
 
-    dependencies_manager = DependenciesManager(work_dir, args.sources_json)
+        print('----------------------------------------------------------------------------------')
+        print('Resolving')
+        manager.resolve()
+        manager.cleanup()
+        print('----------------------------------------------------------------------------------')
 
-    print('----------------------------------------------------------------------------------')
-    chosen_command = commands[args.command]
-    chosen_command(dependencies_manager)
+    def is_dirty(self):
+        manager = self.get_dependencies_manager()
 
-    dependencies_manager.cleanup()
-    print('Done')
-    print('----------------------------------------------------------------------------------')
+        print('----------------------------------------------------------------------------------')
+        print('Checking if the repository is dirty')
+        manager.is_dirty(verbose=True)
+        manager.cleanup()
+        print('----------------------------------------------------------------------------------')
+
+    def check_for_updates(self):
+        print('Checking for updates')
+        print('No implemented yet')
+
+    def delete_cache(self):
+        print('Deleting cached AppData')
+        print('No implemented yet')
 
 
 if __name__ == '__main__':
-    main()
+    ComboCommands()
