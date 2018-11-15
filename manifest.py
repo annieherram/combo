@@ -78,6 +78,17 @@ class Manifest:
         else:
             raise UnhandledComboException('Could not validate manifest with value type {}'.format(type(expected)))
 
+    @staticmethod
+    def is_combo_repo(dir_path):
+        try:
+            Manifest(dir_path)
+            return True
+        except ManifestNotFound:
+            return False
+        # The rest of the exceptions wouldn't mean that this is not a combo repository
+        except ComboException:
+            return True
+
     def sons(self):
         return list(self.dependencies.values())
 

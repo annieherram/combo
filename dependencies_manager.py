@@ -79,7 +79,7 @@ class DependenciesManager:
         or added with a valid content, would not be detected as corrupted.
         The reason this is "the best we can do", is because we don't have the "last resolved manifest".
         """
-        for contrib_dir in self._base_manifest.output_dir.sons():
+        for contrib_dir in self._output_directories():
             dep_manifest = Manifest(contrib_dir)
             combo_dep = ComboDep(dep_manifest.name, dep_manifest.version)
 
@@ -145,6 +145,9 @@ class DependenciesManager:
         if multiple_versions:
             raise LookupError("Multiple versions found: {}".format(multiple_versions))
 
+    def _output_directories(self):
+        return list(filter(Manifest.is_combo_repo, self._base_manifest.output_dir.sons()))
+
     def _extern_from_tree(self):
         dependencies = self._tree.values()
         self._check_for_multiple_versions(dependencies)
@@ -161,6 +164,12 @@ class DependenciesManager:
 
             self._extern_dependency(dep)
 
+        # Clear irrelevant dependencies
+        tree_dir_names = [self.get_dependency_path(d.name).name() for d in dependencies]
+        for contrib_dir in self._output_directories():
+            if contrib_dir.name() not in tree_dir_names:
+                contrib_dir.delete()
+
     def _dep_content_equals(self, dep):
         contrib_dir = self.get_dependency_path(dep.name)
         cached_dir = self._importer.get_cached_path(dep)
@@ -173,7 +182,7 @@ class DependenciesManager:
         return contrib_dir == cached_dir
 
     def _content_to_tree_mismatches(self):
-        contrib_dirs = self._base_manifest.output_dir.sons()
+        contrib_dirs = self._output_directories()
         dependencies = self._tree.values()
 
         tree_dep_names = [self.get_dependency_path(d.name).name() for d in dependencies]
