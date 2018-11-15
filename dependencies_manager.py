@@ -3,7 +3,23 @@ from importer import *
 from combo_tree import *
 
 
+class CorruptedDependency(ComboException):
+    pass
+
+
+class NonExistingCachedPath(NonExistingLocalPath):
+    pass
+
+
 class DependenciesManager:
+    MISMATCH_TYPES = {
+        'More contrib': 'More contrib directories than tree dependencies',
+        'More tree': 'More tree dependencies than contrib directories',
+        'Missing from contrib': 'Dependency from tree missing from contrib',
+        'Missing from tree': 'Directory from contrib does not exist in dependencies tree',
+        'Modified content': 'Modified content'
+    }
+
     def __init__(self, repo_dir, sources_json=None):
         self._repo_dir = repo_dir
 
@@ -33,7 +49,14 @@ class DependenciesManager:
         """
         self._initialize_tree()
 
-        mismatches = self._compare_content_with_tree()
+        # If a dependency is corrupted, it's not considered dirty since the problem is not due to manifest update
+        if self.is_corrupted():
+            # TODO: A dependency can be both dirty an corrupted if the reason is a different dependency.
+            # We still have to check the rest of them for dirtiness
+            print('No informative message yet. repository is corrupted')
+            return False
+
+        mismatches = self._content_to_tree_mismatches()
 
         if verbose:
             if mismatches:
@@ -46,17 +69,42 @@ class DependenciesManager:
 
         return any(mismatches)
 
-    def is_corrupted(self):
+    def check_corruption(self):
         """
         Corrupted repository means that a dependency was manually edited from the working directory.
-        This cannot always be detected, as it required a cached "last resolved manifest".
-        Thus, a corrupted state cannot be detected after cloning a project, or after pulling
-        a version which have changed the dependencies.
+        Our way to detect this scenario is that we have a dependency that its content
+        differs from the content of the version specified is its manifest.
+        Keep in mind, manual edit will not always be recognized in this case,
+        as a dependency which was manually replaced to a newer version, a dependency which was manually removed,
+        or added with a valid content, would not be detected as corrupted.
+        The reason this is "the best we can do", is because we don't have the "last resolved manifest".
+        """
+        for contrib_dir in self._base_manifest.output_dir.sons():
+            dep_manifest = Manifest(contrib_dir)
+            combo_dep = ComboDep(dep_manifest.name, dep_manifest.version)
+
+            expected_hash = self._importer.get_dep_hash(combo_dep)
+            actual_hash = hash(contrib_dir)
+
+            if actual_hash != expected_hash:
+                raise CorruptedDependency('Content found in directory "{}" does not match expected content of "{}"'
+                                          .format(contrib_dir, combo_dep))
+
+    def is_corrupted(self):
+        """
+        See more at the 'check_corruption' function.
         :return: A boolean indication for the corruption state
         """
-        pass
+        try:
+            self.check_corruption()
+            return False
+        except CorruptedDependency:
+            return True
 
     def resolve(self):
+        # Make sure the repository is not corrupted before resolving
+        self.check_corruption()
+
         # If the repository is not dirty, this means everything is up-to-date and there is nothing to do
         if not self.is_dirty():
             print('Project is already up-to-date')
@@ -102,21 +150,23 @@ class DependenciesManager:
         self._check_for_multiple_versions(dependencies)
 
         for dep in dependencies:
-            if not self._compare_dep_content(dep):
+            if not self._dep_content_equals(dep):
                 print('Removing deprecated dependency {}'.format(dep.name))
                 self.get_dependency_path(dep.name).delete()
                 self._extern_dependency(dep)
 
-    def _compare_dep_content(self, dep):
+    def _dep_content_equals(self, dep):
         contrib_dir = self.get_dependency_path(dep.name)
         cached_dir = self._importer.get_cached_path(dep)
 
-        if not contrib_dir.exists() or not cached_dir.exists():
-            return False
+        if not contrib_dir.exists():
+            raise NonExistingLocalPath('Comparing content of non existing contrib directory {}'.format(contrib_dir))
+        if not cached_dir.exists():
+            raise NonExistingLocalPath('Comparing content of non existing cached directory {}'.format(cached_dir))
 
         return contrib_dir == cached_dir
 
-    def _compare_content_with_tree(self):
+    def _content_to_tree_mismatches(self):
         contrib_dirs = self._base_manifest.output_dir.sons()
         dependencies = self._tree.values()
 
@@ -128,37 +178,35 @@ class DependenciesManager:
         # Amount
         contrib_dirs_advantage = len(contrib_dirs) > len(dependencies)
         if contrib_dirs_advantage > 0:
-            mismatches += [{'type': 'More contrib directories than tree dependencies',
+            mismatches += [{'type': self.MISMATCH_TYPES['More contrib'],
                             'value': contrib_dirs_advantage}]
         elif contrib_dirs_advantage < 0:
-            mismatches += [{'type': 'More tree dependencies than contrib directories',
+            mismatches += [{'type': self.MISMATCH_TYPES['More tree'],
                             'value': -contrib_dirs_advantage}]
 
         # Directory names
         for tree_dep_name in tree_dep_names:
             if tree_dep_name not in contrib_dir_names:
-                mismatches += [{'type': 'Dependency from tree missing from contrib', 'value': tree_dep_name}]
+                mismatches += [{'type': self.MISMATCH_TYPES['Missing from contrib'], 'value': tree_dep_name}]
         for contrib_dir_name in contrib_dir_names:
             if contrib_dir_name not in tree_dep_names:
-                mismatches += [{'type': 'Directory from contrib does not exist in dependencies tree',
-                                'value': contrib_dir_name}]
+                mismatches += [{'type': self.MISMATCH_TYPES['Missing from tree'], 'value': contrib_dir_name}]
 
-        if mismatches:
-            return mismatches
-
-        """ If we got to this stage, this means the dependencies from the tree
+        if not mismatches:
+            """ If we got to this stage, this means the dependencies from the tree
             and the directories from contrib are the same, at least by dependency name
             (not necessarily by version and content) """
 
-        # Sanity check
-        tree_dep_names.sort()
-        contrib_dir_names.sort()
-        if tree_dep_names != contrib_dir_names:
-            raise UnhandledComboException('Unhandled mismatch between dependency names')
+            # Sanity check
+            tree_dep_names.sort()
+            contrib_dir_names.sort()
+            if tree_dep_names != contrib_dir_names:
+                raise UnhandledComboException('Unhandled mismatch between dependency names')
 
         # Content
         for dep in dependencies:
-            if not self._compare_dep_content(dep):
-                mismatches += [{'type': 'Modified content', 'value': dep.name}]
+            if self.get_dependency_path(dep.name).name() in contrib_dir_names:
+                if not self._dep_content_equals(dep):
+                    mismatches += [{'type': self.MISMATCH_TYPES['Modified content'], 'value': dep.name}]
 
         return mismatches

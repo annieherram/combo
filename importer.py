@@ -2,7 +2,6 @@
 Handles importing dependencies from multiple possible sources (git repository, zip file, server, etc...)
 """
 
-from combo_core.source_locator import *
 from combo_core.compat import appdata_dir_path
 from combo_nodes import *
 from server_communicator import *
@@ -55,6 +54,10 @@ class AppDataCloneManuallyDeleted(AppDataManuallyEdited):
     pass
 
 
+class ServerUnavailable(ComboException):
+    pass
+
+
 class LocalPathDependency(DependencyBase):
     PATH_KEYWORD = 'local_path'
 
@@ -84,12 +87,16 @@ class CachedData:
 
     def dep_stored_data(self, dep):
         if str(dep) not in self._cached_projects:
-            raise AppDataManuallyEdited('Couldn\'t find dependency {} in stored data'.format(dep))
+            raise AppDataManuallyEdited('Could not find dependency {} in stored data'.format(dep))
 
         return self._cached_projects[str(dep)]
 
-    def exists(self, dep):
+    def has_dep(self, dep):
         return self.dep_dir_path(dep).exists()
+
+    def get_hash(self, dep):
+        assert self.has_dep(dep)
+        return self._cached_projects[str(dep)]['hash']
 
     def _validate_dep_param(self, dep, func, name):
         expected = self.dep_stored_data(dep)[name]
@@ -100,7 +107,7 @@ class CachedData:
                 'Dependency {}: expected directory {} to be {}, found {}'.format(dep, name, expected, found))
 
     def valid(self, dep):
-        if not self.exists(dep):
+        if not self.has_dep(dep):
             return False
 
         if str(dep) in self._cached_projects:
@@ -113,7 +120,7 @@ class CachedData:
         return True
 
     def cached_dependency_location(self, dep):
-        if not self.exists(dep):
+        if not self.has_dep(dep):
             raise AppDataCloneManuallyDeleted(dep)
 
         # Check directory hash matches to know the directory is valid
@@ -161,7 +168,8 @@ class Importer:
             'local_path': LocalPathDependency
         }
 
-        if sources_json is None:
+        self._server_available = sources_json is None
+        if self._server_available:
             self._source_locator = ServerSourceLocator(COMBO_SERVER_ADDRESS)
         else:
             self._source_locator = JsonSourceLocator(sources_json)
@@ -194,6 +202,32 @@ class Importer:
 
         self._cached_data.add(combo_dep)
         return clone_dir
+
+    def get_all_sources_map(self):
+        if not isinstance(self._source_locator, ServerSourceLocator):
+            raise ServerUnavailable('Unable to get all sources map without combo server')
+
+        # TODO: Contact the server to get the actual map
+        return self._source_locator.all_sources()
+
+    def get_dep_hash(self, dep):
+        """
+        :param dep: A combo dependency
+        :return: The hash of the given dependency
+        """
+        # If already cached, return the cached hash
+        if self._cached_data.has_dep(dep):
+            return self._cached_data.get_hash(dep)
+
+        # Dependency is not cached
+        # if there is a server, just use the all sources json
+        if self._server_available:
+            sources_map = self.get_all_sources_map()
+            return sources_map[str(dep)]['hash']
+
+        # If we don't have the server available, we need to cache the dependency ourselves
+        self.clone(dep)
+        return self._cached_data.get_hash(dep)
 
     def get_cached_path(self, dep):
         try:
