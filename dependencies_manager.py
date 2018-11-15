@@ -150,10 +150,16 @@ class DependenciesManager:
         self._check_for_multiple_versions(dependencies)
 
         for dep in dependencies:
-            if not self._dep_content_equals(dep):
+            try:
+                if self._dep_content_equals(dep):
+                    continue
                 print('Removing deprecated dependency {}'.format(dep.name))
                 self.get_dependency_path(dep.name).delete()
-                self._extern_dependency(dep)
+
+            except NonExistingLocalPath:
+                pass
+
+            self._extern_dependency(dep)
 
     def _dep_content_equals(self, dep):
         contrib_dir = self.get_dependency_path(dep.name)
