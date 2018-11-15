@@ -61,7 +61,7 @@ class DependenciesManager:
         if verbose:
             if mismatches:
                 print('The repository is dirty\n'
-                      'Use \'combo resolve\' to update unresolved dependencies')
+                      'Use "combo resolve" to update unresolved dependencies')
                 for mismatch in mismatches:
                     print('\t', mismatch['type'], ':', mismatch['value'])
             else:

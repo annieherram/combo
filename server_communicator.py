@@ -1,4 +1,5 @@
 from combo_core.source_locator import *
+from combo_core.compat import connection_error
 import socket
 import struct
 
@@ -6,7 +7,7 @@ COMBO_SERVER_ADDRESS = ('localhost', 9999)
 MAX_RESPONSE_LENGTH = 4096
 
 
-class ServerConnectionError(ComboException, ConnectionError):
+class ServerConnectionError(ComboException, connection_error):
     pass
 
 
@@ -23,7 +24,7 @@ class ServerSourceLocator(SourceLocator):
 
         try:
             client.connect(self._addr)
-        except ConnectionError as e:
+        except connection_error as e:
             raise ServerConnectionError('Failed to connect to server in address {}'.format(self._addr), e)
 
         request = ';'.join((project_name, str(version))).encode()
