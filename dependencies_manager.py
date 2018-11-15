@@ -7,6 +7,9 @@ class CorruptedDependency(ComboException):
     pass
 
 
+class NonExistingCachedPath(NonExistingLocalPath):
+    pass
+
 
 class DependenciesManager:
     MISMATCH_TYPES = {
@@ -53,7 +56,7 @@ class DependenciesManager:
             print('No informative message yet. repository is corrupted')
             return False
 
-        mismatches = self._compare_content_with_tree()
+        mismatches = self._content_to_tree_mismatches()
 
         if verbose:
             if mismatches:
@@ -84,7 +87,15 @@ class DependenciesManager:
             return
 
         for dep in self._tree.values():
-            if self._compare_dep_content(dep):
+            try:
+                same_content = self._dep_content_equals(dep)
+            except NonExistingLocalPath as e:
+                if isinstance(e, NonExistingCachedPath):
+                    raise e
+                else:
+                    continue
+
+            if not same_content:
                 # Look for the hash in the sources from the server
                 relevant_sources = {key: val for key, val in all_sources.items()
                                     if ComboDep.destring(key).name == dep.name}
@@ -153,21 +164,23 @@ class DependenciesManager:
         self._check_for_multiple_versions(dependencies)
 
         for dep in dependencies:
-            if not self._compare_dep_content(dep):
+            if not self._dep_content_equals(dep):
                 print('Removing deprecated dependency {}'.format(dep.name))
                 self.get_dependency_path(dep.name).delete()
                 self._extern_dependency(dep)
 
-    def _compare_dep_content(self, dep):
+    def _dep_content_equals(self, dep):
         contrib_dir = self.get_dependency_path(dep.name)
         cached_dir = self._importer.get_cached_path(dep)
 
-        if not contrib_dir.exists() or not cached_dir.exists():
-            return False
+        if not contrib_dir.exists():
+            raise NonExistingLocalPath('Comparing content of non existing contrib directory {}'.format(contrib_dir))
+        if not cached_dir.exists():
+            raise NonExistingLocalPath('Comparing content of non existing cached directory {}'.format(cached_dir))
 
         return contrib_dir == cached_dir
 
-    def _compare_content_with_tree(self):
+    def _content_to_tree_mismatches(self):
         contrib_dirs = self._base_manifest.output_dir.sons()
         dependencies = self._tree.values()
 
@@ -207,7 +220,7 @@ class DependenciesManager:
         # Content
         for dep in dependencies:
             if self.get_dependency_path(dep.name).name() in contrib_dir_names:
-                if not self._compare_dep_content(dep):
+                if not self._dep_content_equals(dep):
                     mismatches += [{'type': self.MISMATCH_TYPES['Modified content'], 'value': dep.name}]
 
         return mismatches
