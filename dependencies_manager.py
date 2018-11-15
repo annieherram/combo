@@ -72,37 +72,23 @@ class DependenciesManager:
     def check_corruption(self):
         """
         Corrupted repository means that a dependency was manually edited from the working directory.
-        This cannot always be detected, as it required a cached "last resolved manifest".
-        Thus, a corrupted state cannot be detected after cloning a project, or after pulling
-        a version which have changed the dependencies.
-        Also, a dependency might not be recognized as corrupted if the manual change
-        exactly matches a known version of the dependency, that way it can only be recognized as dirty
+        Our way to detect this scenario is that we have a dependency that its content
+        differs from the content of the version specified is its manifest.
+        Keep in mind, manual edit will not always be recognized in this case,
+        as a dependency which was manually replaced to a newer version, a dependency which was manually removed,
+        or added with a valid content, would not be detected as corrupted.
+        The reason this is "the best we can do", is because we don't have the "last resolved manifest".
         """
-        self._initialize_tree()
+        for contrib_dir in self._base_manifest.output_dir.sons():
+            dep_manifest = Manifest(contrib_dir)
+            combo_dep = ComboDep(dep_manifest.name, dep_manifest.version)
 
-        try:
-            all_sources = self._importer.get_all_sources_map()
-        except ServerUnavailable:
-            # When the server is not available, there is no way to check if the repository is corrupted unfortunately
-            return
+            expected_hash = self._importer.get_dep_hash(combo_dep)
+            actual_hash = hash(contrib_dir)
 
-        for dep in self._tree.values():
-            try:
-                same_content = self._dep_content_equals(dep)
-            except NonExistingLocalPath as e:
-                if isinstance(e, NonExistingCachedPath):
-                    raise e
-                else:
-                    continue
-
-            if not same_content:
-                # Look for the hash in the sources from the server
-                relevant_sources = {key: val for key, val in all_sources.items()
-                                    if ComboDep.destring(key).name == dep.name}
-                dep_hash = hash(self.get_dependency_path(dep.name))
-                if dep_hash not in [x['hash'] for x in relevant_sources.values()]:
-                    raise CorruptedDependency('Content found in dependency "{}" does not match any known version'
-                                              .format(dep.name), dep_hash)
+            if actual_hash != expected_hash:
+                raise CorruptedDependency('Content found in directory "{}" does not match expected content of "{}"'
+                                          .format(contrib_dir, combo_dep))
 
     def is_corrupted(self):
         """

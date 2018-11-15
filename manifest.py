@@ -1,3 +1,4 @@
+from combo_core.compat import string_types
 from combo_core import *
 from combo_nodes import *
 import json
@@ -27,21 +28,24 @@ class Manifest:
     dependency_name_keyword = 'name'
     required_dependency_keywords = [dependency_name_keyword]
 
-    def __init__(self, dir_path, expected_combo_node):
-        assert isinstance(expected_combo_node, ComboNode), 'Invalid expected manifest value type'
+    def __init__(self, dir_path, expected_combo_node=None):
+        """
+        :param dir_path: The path to the combo manifest json file
+        :param expected_combo_node: The expected combo node value of the current manifest
+        """
 
         self.base_path = dir_path if isinstance(dir_path, Directory) else Directory(dir_path)
         self.file_path = self.base_path.join(self.manifest_file_name).path
 
         if not os.path.exists(self.file_path):
-            raise ManifestNotFound('{} is not a combo repository'.format(self.base_path))
+            raise ManifestNotFound('"{}" is not a combo repository'.format(self.base_path))
 
         with open(self.file_path, 'r') as f:
             self.manifest = json.load(f)
 
         for kw in self.required_manifest_keywords:
             if kw not in self.manifest:
-                raise InvalidManifest('The manifest of "{}" missing keyword "{}"'.format(expected_combo_node, kw))
+                raise InvalidManifest('The manifest of "{}" missing keyword "{}"'.format(self.base_path, kw))
 
         self.name = self.manifest[self.name_keyword]
         self.version = self.manifest[self.version_keyword]
@@ -56,16 +60,23 @@ class Manifest:
         if self.valid_as_root():
             self.output_dir = self.base_path.join(self.manifest[self.output_dir_keyword])
 
-        self.validate(expected_combo_node)
+        self.validate(expected_combo_node if expected_combo_node is not None else dir_path.name())
 
-    def validate(self, expected_manifest_value):
-        if isinstance(expected_manifest_value, ComboDep):
-            if self.name != expected_manifest_value.name:
-                raise ComboDependencyMismatch('Manifest name mismatch. expected {}, found {}'
-                                              .format(expected_manifest_value.name, self.name))
-            if self.version != str(expected_manifest_value.version):
-                raise ComboDependencyMismatch('Manifest "{}" version mismatch. expected {}, found {}'
-                                              .format(self.name, str(expected_manifest_value.version), self.version))
+    def validate(self, expected):
+        if isinstance(expected, string_types):
+            if ComboDep.normalize_name_dir(self.name) != expected:
+                raise ComboDependencyMismatch('Manifest name mismatch for directory {}, found name {}'
+                                              .format(expected, self.name))
+        elif isinstance(expected, ComboNode):
+            if isinstance(expected, ComboDep):
+                if self.name != expected.name:
+                    raise ComboDependencyMismatch('Manifest name mismatch. expected {}, found {}'
+                                                  .format(expected.name, self.name))
+                if self.version != str(expected.version):
+                    raise ComboDependencyMismatch('Manifest "{}" version mismatch. expected {}, found {}'
+                                                  .format(self.name, str(expected.version), self.version))
+        else:
+            raise UnhandledComboException('Could not validate manifest with value type {}'.format(type(expected)))
 
     def sons(self):
         return list(self.dependencies.values())
