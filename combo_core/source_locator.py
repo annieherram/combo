@@ -71,6 +71,7 @@ class SourceLocator(object):
 
 class JsonSourceLocator(SourceLocator):
     IDENTIFIER_TYPE_KEYWORD = 'general_type'
+    DEFAULT_SRC_TYPE = 'version_dependent'
 
     def __init__(self, json_path):
         with open(json_path, 'r') as json_file:
@@ -80,18 +81,22 @@ class JsonSourceLocator(SourceLocator):
             'version_dependent': VersionDependentSourceSupplier
         }
 
+        if self.DEFAULT_SRC_TYPE not in self._supported_src_suppliers:
+            raise UnhandledComboException('Invalid default source type {}'.format(self.DEFAULT_SRC_TYPE))
+
+    def _get_src_type(self, project_details):
+        if self.IDENTIFIER_TYPE_KEYWORD in project_details:
+            return project_details[self.IDENTIFIER_TYPE_KEYWORD]
+        else:
+            return self.DEFAULT_SRC_TYPE
+
     def get_source(self, project_name, version):
         if project_name not in self._projects:
             raise UndefinedProject('Project {} could not be found'.format(project_name))
 
         project_details = self._projects[project_name]
 
-        if self.IDENTIFIER_TYPE_KEYWORD not in project_details:
-            raise UndefinedProject('Project {} is missing required attribute "{}"'.format(
-                project_name, self.IDENTIFIER_TYPE_KEYWORD))
-
-        project_src_type = project_details[self.IDENTIFIER_TYPE_KEYWORD]
-
+        project_src_type = self._get_src_type(project_details)
         if project_src_type not in self._supported_src_suppliers:
             raise KeyError('Unsupported {} value - {}'.format(self.IDENTIFIER_TYPE_KEYWORD, project_src_type))
 
