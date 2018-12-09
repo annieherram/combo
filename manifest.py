@@ -34,7 +34,7 @@ class Manifest:
         :param expected_combo_node: The expected combo node value of the current manifest
         """
 
-        self.base_path = dir_path if isinstance(dir_path, Directory) else Directory(dir_path)
+        self.base_path = dir_path
         self.file_path = self.base_path.join(self.manifest_file_name).path
 
         if not os.path.exists(self.file_path):

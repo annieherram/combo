@@ -40,7 +40,7 @@ class DependenciesManager:
             self._tree.build(self._base_manifest)
             self._tree.disconnect_outdated_versions()
 
-    def is_dirty(self, verbose=False):
+    def is_dirty(self, verbose=False, force=False):
         """
         Dirty repository means there is a difference between the current manifest on the working directory
         and the versions cloned to the working directory
@@ -49,12 +49,13 @@ class DependenciesManager:
         """
         self._initialize_tree()
 
-        # If a dependency is corrupted, it's not considered dirty since the problem is not due to manifest update
-        if self.is_corrupted():
-            # TODO: A dependency can be both dirty an corrupted if the reason is a different dependency.
-            # We still have to check the rest of them for dirtiness
-            print('No informative message yet. repository is corrupted')
-            return False
+        if not force:
+            # If a dependency is corrupted, it's not considered dirty since the problem is not due to manifest update
+            if self.is_corrupted():
+                # TODO: A dependency can be both dirty an corrupted if the reason is a different dependency.
+                # We still have to check the rest of them for dirtiness
+                print('No informative message yet. repository is corrupted')
+                return False
 
         mismatches = self._content_to_tree_mismatches()
 
@@ -107,7 +108,7 @@ class DependenciesManager:
             self.check_corruption()
 
         # If the repository is not dirty, this means everything is up-to-date and there is nothing to do
-        if not self.is_dirty():
+        if not self.is_dirty(force=force):
             print('Project is already up-to-date')
             return
 

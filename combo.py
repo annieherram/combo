@@ -1,5 +1,9 @@
 from __future__ import print_function
 
+import sys
+import os
+sys.path.append(os.path.abspath('contrib'))
+
 import combo_core.compat
 import argparse
 from dependencies_manager import *
