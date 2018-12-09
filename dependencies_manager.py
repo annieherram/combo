@@ -25,7 +25,7 @@ class DependenciesManager:
 
         # Root directory must have base manifest
         self._base_manifest = Manifest(self._repo_dir, ComboRoot())
-        assert self._base_manifest.valid_as_root(), 'Root manifest cannot be combo root'
+        assert self._base_manifest.valid_as_root(), '{} is not valid as root manifest'.format(self._base_manifest)
 
         self._importer = Importer(sources_json)
         self._tree = ComboTree(self._importer)
