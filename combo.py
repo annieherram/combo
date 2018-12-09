@@ -39,9 +39,15 @@ class ComboCommands(object):
         check_for_updates_parser = subparsers.add_parser('check-for-updates')
         check_for_updates_parser.set_defaults(command=self.check_for_updates)
 
-        # Check for updates
+        # Delete cache
         delete_cache_parser = subparsers.add_parser('delete-cache')
         delete_cache_parser.set_defaults(command=self.delete_cache)
+
+        # Clear old outputs
+        clear_old_outputs_parser = subparsers.add_parser('clear-old-outputs')
+        clear_old_outputs_parser.add_argument('old_outputs_dir', metavar='old-outputs-dir',
+                                              help='Previous directory for dependency outputs')
+        clear_old_outputs_parser.set_defaults(command=self.clear_old_outputs)
 
     def get_dependencies_manager(self):
         work_dir = Directory(self._args.path or os.path.curdir)
@@ -79,6 +85,20 @@ class ComboCommands(object):
     def delete_cache(self):
         print('Deleting cached AppData')
         print('No implemented yet')
+
+    def clear_old_outputs(self):
+        print('Clearing dependencies from the old output directory')
+        old_outputs_dir = Directory(self._args.old_outputs_dir)
+        cleared = False
+
+        # Clear only paths that are combo repositories
+        for subdir in old_outputs_dir.sons():
+            if Manifest.is_combo_repo(subdir):
+                subdir.delete()
+                cleared = True
+
+        if not cleared:
+            print('Nothing to clear')
 
 
 if __name__ == '__main__':
