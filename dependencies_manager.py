@@ -101,9 +101,10 @@ class DependenciesManager:
         except CorruptedDependency:
             return True
 
-    def resolve(self):
+    def resolve(self, force=False):
         # Make sure the repository is not corrupted before resolving
-        self.check_corruption()
+        if not force:
+            self.check_corruption()
 
         # If the repository is not dirty, this means everything is up-to-date and there is nothing to do
         if not self.is_dirty():

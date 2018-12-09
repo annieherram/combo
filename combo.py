@@ -24,6 +24,7 @@ class ComboCommands(object):
                                    nargs='?', default=None)
             subparser.add_argument('--path', '-p', help='The path of the resolve repository',
                                    nargs='?', default=None)
+            subparser.add_argument('--force', '-f', action="store_true", help='Ignore corrupted dependencies')
 
         # Resolve
         resolve_parser = subparsers.add_parser('resolve')
@@ -65,7 +66,7 @@ class ComboCommands(object):
 
         print('----------------------------------------------------------------------------------')
         print('Resolving')
-        manager.resolve()
+        manager.resolve(self._args.force)
         manager.cleanup()
         print('----------------------------------------------------------------------------------')
 
