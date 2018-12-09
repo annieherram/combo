@@ -92,7 +92,9 @@ class CachedData:
         return self._cached_projects[str(dep)]
 
     def has_dep(self, dep):
-        return self.dep_dir_path(dep).exists()
+        dir_found = self.dep_dir_path(dep).exists()
+        found_in_map = str(dep) in self._cached_projects
+        return dir_found and found_in_map
 
     def get_hash(self, dep):
         assert self.has_dep(dep)
@@ -108,11 +110,7 @@ class CachedData:
 
     def valid(self, dep):
         if not self.has_dep(dep):
-            return False
-
-        if str(dep) in self._cached_projects:
-            raise AppDataManuallyEdited(
-                'Dependency {} was found in dictionary but not in clones directory'.format(dep))
+            raise AppDataManuallyEdited('Dependency {} does not exist'.format(dep))
 
         self._validate_dep_param(dep, len, 'size')
         self._validate_dep_param(dep, hash, 'hash')
@@ -182,7 +180,12 @@ class Importer:
 
         # If the requested import already exists in metadata, ignore it
         if clone_dir.exists():
-            return clone_dir
+            try:
+                self._cached_data.valid(combo_dep)
+                return clone_dir
+            except AppDataManuallyEdited:
+                self._cached_data.remove(combo_dep)
+                clone_dir.delete()
 
         print('Caching dependency {}'.format(combo_dep))
 

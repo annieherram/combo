@@ -28,6 +28,7 @@ class GitRepo:
         if not self.local_path.exists():
             os.makedirs(self.local_path.path)
 
+        # TODO: Add timeout. Fix 'local_projects.json' file in case of timeout before exiting
         self._repo = git.Repo.clone_from(remote_url, self.local_path.path)
 
         if ref:
