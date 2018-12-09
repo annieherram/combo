@@ -25,7 +25,7 @@ class DependenciesManager:
 
         # Root directory must have base manifest
         self._base_manifest = Manifest(self._repo_dir, ComboRoot())
-        assert self._base_manifest.valid_as_root(), 'Root manifest cannot be combo root'
+        assert self._base_manifest.valid_as_root(), '{} is not valid as root manifest'.format(self._base_manifest)
 
         self._importer = Importer(sources_json)
         self._tree = ComboTree(self._importer)
@@ -40,7 +40,7 @@ class DependenciesManager:
             self._tree.build(self._base_manifest)
             self._tree.disconnect_outdated_versions()
 
-    def is_dirty(self, verbose=False):
+    def is_dirty(self, verbose=False, force=False):
         """
         Dirty repository means there is a difference between the current manifest on the working directory
         and the versions cloned to the working directory
@@ -49,19 +49,20 @@ class DependenciesManager:
         """
         self._initialize_tree()
 
-        # If a dependency is corrupted, it's not considered dirty since the problem is not due to manifest update
-        if self.is_corrupted():
-            # TODO: A dependency can be both dirty an corrupted if the reason is a different dependency.
-            # We still have to check the rest of them for dirtiness
-            print('No informative message yet. repository is corrupted')
-            return False
+        if not force:
+            # If a dependency is corrupted, it's not considered dirty since the problem is not due to manifest update
+            if self.is_corrupted():
+                # TODO: A dependency can be both dirty an corrupted if the reason is a different dependency.
+                # We still have to check the rest of them for dirtiness
+                print('No informative message yet. repository is corrupted')
+                return False
 
         mismatches = self._content_to_tree_mismatches()
 
         if verbose:
             if mismatches:
                 print('The repository is dirty\n'
-                      'Use \'combo resolve\' to update unresolved dependencies')
+                      'Use "combo resolve" to update unresolved dependencies')
                 for mismatch in mismatches:
                     print('\t', mismatch['type'], ':', mismatch['value'])
             else:
@@ -79,7 +80,7 @@ class DependenciesManager:
         or added with a valid content, would not be detected as corrupted.
         The reason this is "the best we can do", is because we don't have the "last resolved manifest".
         """
-        for contrib_dir in self._base_manifest.output_dir.sons():
+        for contrib_dir in self._output_directories():
             dep_manifest = Manifest(contrib_dir)
             combo_dep = ComboDep(dep_manifest.name, dep_manifest.version)
 
@@ -101,12 +102,13 @@ class DependenciesManager:
         except CorruptedDependency:
             return True
 
-    def resolve(self):
+    def resolve(self, force=False):
         # Make sure the repository is not corrupted before resolving
-        self.check_corruption()
+        if not force:
+            self.check_corruption()
 
         # If the repository is not dirty, this means everything is up-to-date and there is nothing to do
-        if not self.is_dirty():
+        if not self.is_dirty(force=force):
             print('Project is already up-to-date')
             return
 
@@ -145,15 +147,30 @@ class DependenciesManager:
         if multiple_versions:
             raise LookupError("Multiple versions found: {}".format(multiple_versions))
 
+    def _output_directories(self):
+        return list(filter(Manifest.is_combo_repo, self._base_manifest.output_dir.sons()))
+
     def _extern_from_tree(self):
         dependencies = self._tree.values()
         self._check_for_multiple_versions(dependencies)
 
         for dep in dependencies:
-            if not self._dep_content_equals(dep):
+            try:
+                if self._dep_content_equals(dep):
+                    continue
                 print('Removing deprecated dependency {}'.format(dep.name))
                 self.get_dependency_path(dep.name).delete()
-                self._extern_dependency(dep)
+
+            except NonExistingLocalPath:
+                pass
+
+            self._extern_dependency(dep)
+
+        # Clear irrelevant dependencies
+        tree_dir_names = [self.get_dependency_path(d.name).name() for d in dependencies]
+        for contrib_dir in self._output_directories():
+            if contrib_dir.name() not in tree_dir_names:
+                contrib_dir.delete()
 
     def _dep_content_equals(self, dep):
         contrib_dir = self.get_dependency_path(dep.name)
@@ -167,7 +184,7 @@ class DependenciesManager:
         return contrib_dir == cached_dir
 
     def _content_to_tree_mismatches(self):
-        contrib_dirs = self._base_manifest.output_dir.sons()
+        contrib_dirs = self._output_directories()
         dependencies = self._tree.values()
 
         tree_dep_names = [self.get_dependency_path(d.name).name() for d in dependencies]

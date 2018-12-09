@@ -34,7 +34,7 @@ class Manifest:
         :param expected_combo_node: The expected combo node value of the current manifest
         """
 
-        self.base_path = dir_path if isinstance(dir_path, Directory) else Directory(dir_path)
+        self.base_path = dir_path
         self.file_path = self.base_path.join(self.manifest_file_name).path
 
         if not os.path.exists(self.file_path):
@@ -78,6 +78,17 @@ class Manifest:
         else:
             raise UnhandledComboException('Could not validate manifest with value type {}'.format(type(expected)))
 
+    @staticmethod
+    def is_combo_repo(dir_path):
+        try:
+            Manifest(dir_path)
+            return True
+        except ManifestNotFound:
+            return False
+        # The rest of the exceptions wouldn't mean that this is not a combo repository
+        except ComboException:
+            return True
+
     def sons(self):
         return list(self.dependencies.values())
 
@@ -93,3 +104,6 @@ class Manifest:
 
     def __ne__(self, other):
         return not self == other
+
+    def __str__(self):
+        return 'Manifest at {}'.format(self.file_path)
