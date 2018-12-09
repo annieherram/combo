@@ -1,5 +1,6 @@
 from combo_core import *
 import json
+import copy
 
 
 class UndefinedProject(ComboException):
@@ -44,20 +45,36 @@ class SpecificVersionHandler:
 
 
 class VersionDependentSourceSupplier:
+    SOURCE_DEFAULTS_KEYWORD = 'defaults'
+
     def __init__(self, project_name, project_details):
         self._project_name = project_name
+
+        self._project_defaults = project_details[self.SOURCE_DEFAULTS_KEYWORD] \
+            if self.SOURCE_DEFAULTS_KEYWORD in project_details else dict()
+
         self._specific_versions_dict = project_details
+
+    def _get_version_details(self, version_dict):
+        if SpecificVersionHandler.TYPE_KEYWORD in version_dict:
+            # If we have a different type, the default is not relevant
+            return version_dict
+
+        # Update variables from the version dictionary into the default variables dictionary
+        version_details = copy.deepcopy(self._project_defaults)
+        version_details.update(version_dict)
+        return version_details
 
     def get_source(self, version_str):
         if version_str not in self._specific_versions_dict:
             raise UndefinedProjectVersion('Version {} could not be found for project {}'.format(
                 version_str, self._project_name))
 
-        specific_version_details = self._specific_versions_dict[version_str]
+        specific_version_details = self._get_version_details(self._specific_versions_dict[version_str])
         try:
             specific_version_handler = SpecificVersionHandler(specific_version_details)
         except KeyError:
-            raise KeyError('Version {} of project "{}" - keyword {} does not exist'.format(
+            raise KeyError('Version {} of project "{}" - keyword "{}" does not exist'.format(
                 version_str, self._project_name, SpecificVersionHandler.TYPE_KEYWORD))
 
         source = specific_version_handler.get_source()
