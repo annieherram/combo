@@ -18,7 +18,7 @@ class ActionOnNonexistingDirectory(EnvironmentError):
 
 class Directory(object):
     def __init__(self, path):
-        self.path = os.path.abspath(path)
+        self.path = path.path if isinstance(path, type(self)) else os.path.abspath(path)
 
     def name(self):
         return os.path.split(self.path)[-1]
