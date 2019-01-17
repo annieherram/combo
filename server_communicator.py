@@ -1,9 +1,7 @@
 from combo_core.source_locator import *
-from combo_core.compat import connection_error
-import socket
-import struct
+from combo_core.compat import urllib, connection_error
 
-COMBO_SERVER_ADDRESS = ('localhost', 9999)
+COMBO_SERVER_ADDRESS = ('localhost', 5000)
 MAX_RESPONSE_LENGTH = 4096
 
 
@@ -20,25 +18,21 @@ class ServerSourceLocator(SourceLocator):
         self._addr = address
 
     def contact_server(self, project_name, version):
-        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        def get_url(**params):
+            url = 'http://' + ':'.join(str(x) for x in self._addr)
+            if params:
+                url += '/?' + '&'.join('{}={}'.format(key, val) for key, val in params.items())
+
+            return url.replace(' ', '%20')
+
+        url = get_url(request_type='get_source', project_name=project_name, project_version=str(version))
+        contents = urllib.urlopen(url).read()
 
         try:
-            client.connect(self._addr)
-        except connection_error as e:
-            raise ServerConnectionError('Failed to connect to server in address {}'.format(self._addr), e)
+            source = json.loads(contents.decode())
+        except BaseException as e:
+            raise NackFromServer(e, contents)
 
-        request = ';'.join((project_name, str(version))).encode()
-        request_length = struct.pack('>i', len(request))
-
-        client.send(request_length)
-        client.recv(4)  # Ack
-        client.send(request)
-
-        response = client.recv(MAX_RESPONSE_LENGTH)
-        if response.startswith(b'\x00\xde\xc1\x1e'):
-            raise NackFromServer()
-
-        source = json.loads(response.decode())
         return source
 
     def get_source(self, project_name, version):

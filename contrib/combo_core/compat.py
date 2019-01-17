@@ -10,9 +10,11 @@ if python_version.major == 2 and python_version.minor >= 7:
     import socket
     string_types = (basestring, )
     connection_error = socket.error
+    import urllib2 as urllib
 elif python_version.major == 3:
     string_types = (str, )
     connection_error = ConnectionError
+    import urllib.request as urllib
 else:
     raise EnvironmentError('Unsupported python version detected: {}'.format(platform.python_version()))
 
