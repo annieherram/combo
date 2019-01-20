@@ -1,12 +1,8 @@
 from combo_core.source_locator import *
-from combo_core.compat import urllib, connection_error
+import requests
 
 COMBO_SERVER_ADDRESS = ('localhost', 5000)
 MAX_RESPONSE_LENGTH = 4096
-
-
-class ServerConnectionError(ComboException, connection_error):
-    pass
 
 
 class NackFromServer(ComboException):
@@ -18,20 +14,14 @@ class ServerSourceLocator(SourceLocator):
         self._addr = address
 
     def contact_server(self, project_name, version):
-        def get_url(**params):
-            url = 'http://' + ':'.join(str(x) for x in self._addr)
-            if params:
-                url += '/?' + '&'.join('{}={}'.format(key, val) for key, val in params.items())
-
-            return url.replace(' ', '%20')
-
-        url = get_url(request_type='get_source', project_name=project_name, project_version=str(version))
-        contents = urllib.urlopen(url).read()
+        url = 'http://' + ':'.join(str(x) for x in self._addr)
+        params = {'request_type': 'get_source', 'project_name': project_name, 'project_version': str(version)}
+        response = requests.get(url, params=params)
 
         try:
-            source = json.loads(contents.decode())
+            source = json.loads(response.content.decode())
         except BaseException as e:
-            raise NackFromServer(e, contents)
+            raise NackFromServer(e, response)
 
         return source
 
