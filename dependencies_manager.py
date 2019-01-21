@@ -87,6 +87,7 @@ class DependenciesManager:
             expected_hash = self._importer.get_dep_hash(combo_dep)
             actual_hash = hash(contrib_dir)
 
+            # TODO: Hash should consider git ignore, we need to think about a way to fix this issue
             if actual_hash != expected_hash:
                 raise CorruptedDependency('Content found in directory "{}" does not match expected content of "{}"'
                                           .format(contrib_dir, combo_dep))

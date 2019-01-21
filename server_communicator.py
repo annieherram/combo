@@ -2,7 +2,7 @@ from combo_core.source_locator import *
 from combo_core.compat import connection_error
 import requests
 
-COMBO_SERVER_ADDRESS = ('localhost', 5000)
+COMBO_SERVER_ADDRESS = ('localhost', 9999)
 MAX_RESPONSE_LENGTH = 4096
 
 

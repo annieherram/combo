@@ -79,11 +79,7 @@ class CachedData:
 
         # If the JSON file doesn't exist yet, create a default one
         self._json_file_path = self.appdata_dir.join('local_projects.json').get_file(json.dumps(dict()))
-
-        with open(self._json_file_path, 'r') as f:
-            self._cached_projects = json.load(f)
-
-        assert isinstance(self._cached_projects, dict), 'The local projects json should contain a projects dictionary'
+        self._cached_projects = JsonFile(self._json_file_path)
 
     def dep_stored_data(self, dep):
         if str(dep) not in self._cached_projects:
@@ -133,14 +129,9 @@ class CachedData:
         # Remove the dependency from the json if exists and update the file
         if str(dep) in self._cached_projects:
             self._cached_projects.pop(str(dep))
-            self._update_file()
 
     def _get_used_storage(self):
         return self._clones_dir.size()
-
-    def _update_file(self):
-        with open(self._json_file_path, 'w') as f:
-            json.dump(self._cached_projects, f, indent=4)
 
     def dep_dir_path(self, dep):
         return self._clones_dir.join(dep.normalized_name_dir(), dep.normalized_version_dir())
@@ -148,7 +139,6 @@ class CachedData:
     def add(self, dep):
         directory = self.dep_dir_path(dep)
         self._cached_projects[str(dep)] = {'size': directory.size(), 'hash': hash(directory)}
-        self._update_file()
 
     def apply_limit(self):
         """
