@@ -2,6 +2,7 @@ import os
 import hashlib
 import stat
 import shutil
+import json
 
 
 class ObjectNotFound(LookupError):
@@ -136,6 +137,28 @@ class Directory(object):
 
     def __ne__(self, other):
         return not self == other
+
+
+class JsonFile(dict):
+    def __init__(self, file_path):
+        super(JsonFile, self).__init__()
+        self.file_path = file_path
+
+        with open(self.file_path, 'r') as f:
+            content = json.load(f)
+
+        assert isinstance(content, dict), 'The JSON file should contain a dictionary'
+
+        for key, val in content.items():
+            self[key] = val
+
+    def _update_file(self):
+        with open(self.file_path, 'w') as f:
+            json.dump(self, f, indent=4)
+
+    def __setitem__(self, key, value):
+        super(JsonFile, self).__setitem__(key, value)
+        self._update_file()
 
 
 def xfilter(func, iterable):

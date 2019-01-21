@@ -2,12 +2,12 @@
     "manifest_format_version": "1.0",
 
     "name": "Combo",
-    "version": "1.1",
+    "version": "1.2",
 
     "dependencies": [
         {
             "name": "Combo Core",
-            "version": "1.1"
+            "version": "1.3"
         }
     ],
 

@@ -37,5 +37,6 @@ class ModuleNotInstalled(ImportError):
 try:
     import git
     import requests
+    import flask
 except ImportError as e:
     raise ModuleNotInstalled('Module installation required', getattr(e, exception_message_attribute))
