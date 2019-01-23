@@ -20,14 +20,14 @@ class DependenciesManager:
         'Modified content': 'Modified content'
     }
 
-    def __init__(self, repo_dir, sources_json=None):
+    def __init__(self, repo_dir, sources_locator):
         self._repo_dir = repo_dir
 
         # Root directory must have base manifest
         self._base_manifest = Manifest(self._repo_dir, ComboRoot())
         assert self._base_manifest.valid_as_root(), '{} is not valid as root manifest'.format(self._base_manifest)
 
-        self._importer = Importer(sources_json)
+        self._importer = Importer(sources_locator)
         self._tree = ComboTree(self._importer)
         self._tree_initialized = False
 
@@ -45,6 +45,7 @@ class DependenciesManager:
         Dirty repository means there is a difference between the current manifest on the working directory
         and the versions cloned to the working directory
         :param verbose: print outputs flag
+        :param force: ignore dependencies corruption
         :return: A boolean indication for the dirty state
         """
         self._initialize_tree()
@@ -52,7 +53,7 @@ class DependenciesManager:
         if not force:
             # If a dependency is corrupted, it's not considered dirty since the problem is not due to manifest update
             if self.is_corrupted():
-                # TODO: A dependency can be both dirty an corrupted if the reason is a different dependency.
+                # TODO: A repository can be both dirty an corrupted if the reason is a different dependency.
                 # We still have to check the rest of them for dirtiness
                 print('No informative message yet. repository is corrupted')
                 return False

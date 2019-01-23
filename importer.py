@@ -2,6 +2,7 @@
 Handles importing dependencies from multiple possible sources (git repository, zip file, server, etc...)
 """
 
+from __future__ import print_function
 from combo_core.compat import appdata_dir_path
 from combo_nodes import *
 from server_communicator import *
@@ -150,19 +151,25 @@ class CachedData:
 
 
 class Importer:
-    def __init__(self, sources_json=None):
+    def __init__(self, sources_locator):
+        """
+        Construct a dependencies importer
+        :param sources_locator: could be either a source locator which works with a server,
+                                or a json sources locator in case a server is not available
+        """
         self._handlers = {
             'git': GitDependency,
             'local_path': LocalPathDependency
         }
 
-        self._server_available = sources_json is None
-        if self._server_available:
-            self._source_locator = ServerSourceLocator(COMBO_SERVER_ADDRESS)
+        if isinstance(sources_locator, ServerSourceLocator):
+            self._server_available = True
+        elif isinstance(sources_locator, JsonSourceLocator):
+            self._server_available = False
         else:
-            self._source_locator = JsonSourceLocator(sources_json)
-        assert isinstance(self._source_locator, SourceLocator), 'Invalid source locator type'
+            raise UnhandledComboException('Unsupported source locator type "{}"'.format(type(sources_locator)))
 
+        self._source_locator = sources_locator
         self._cached_data = CachedData('clones')
 
     def clone(self, combo_dep):
@@ -200,7 +207,6 @@ class Importer:
         if not isinstance(self._source_locator, ServerSourceLocator):
             raise ServerUnavailable('Unable to get all sources map without combo server')
 
-        # TODO: Contact the server to get the actual map
         return self._source_locator.all_sources()
 
     def get_dep_hash(self, dep):

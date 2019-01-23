@@ -7,6 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'contrib
 import combo_core.compat
 import argparse
 from dependencies_manager import *
+from settings import COMBO_SERVER_ADDRESS
 
 
 class ComboCommands(object):
@@ -26,8 +27,7 @@ class ComboCommands(object):
             subparser.add_argument('--sources-json', '-j',
                                    help='An optional local sources json file instead of using the server',
                                    nargs='?', default=None)
-            subparser.add_argument('--path', '-p', help='The path of the resolve repository',
-                                   nargs='?', default=None)
+            subparser.add_argument('--path', '-p', help='The path of the repository', nargs='?', default=None)
             subparser.add_argument('--force', '-f', action="store_true", help='Ignore corrupted dependencies')
 
         # Resolve
@@ -54,16 +54,32 @@ class ComboCommands(object):
                                               help='Previous directory for dependency outputs')
         clear_old_outputs_parser.set_defaults(command=self.clear_old_outputs)
 
-    def get_dependencies_manager(self):
+        # Upload
+        upload_parser = subparsers.add_parser('upload')
+        upload_parser.add_argument('--path', '-p', help='The path of the repository', nargs='?', default=None)
+        upload_parser.set_defaults(command=self.upload)
+
+    def get_sources_locator(self, server_required=False):
+        if not server_required:
+            if self._args.sources_json is not None:
+                return JsonSourceLocator(self._args.sources_json)
+
+            print('Sources json was not specified. Combo server will be contacted for sources')
+
+        return ServerSourceMaintainer(COMBO_SERVER_ADDRESS)
+
+    def get_working_dir(self):
         work_dir = Directory(self._args.path or os.path.curdir)
 
         if self._args.path is None:
             print('Working directory is', work_dir)
 
-        if self._args.sources_json is None:
-            print('Sources json was not specified. Combo server will be contacted for sources')
+        return work_dir
 
-        return DependenciesManager(work_dir, self._args.sources_json)
+    def get_dependencies_manager(self):
+        work_dir = self.get_working_dir()
+        sources_locator = self.get_sources_locator()
+        return DependenciesManager(work_dir, sources_locator)
 
     def resolve(self):
         manager = self.get_dependencies_manager()
@@ -104,6 +120,16 @@ class ComboCommands(object):
 
         if not cleared:
             print('Nothing to clear')
+
+    def upload(self):
+        print('Uploading current version to the server')
+        source_maintainer = self.get_sources_locator(server_required=True)
+        manifest = Manifest(self.get_working_dir())
+
+        # TODO: Use git commands to get the actual details
+        version_details = {'type': 'git', 'url': 'thisistheurl', 'commit_hash': 'thisisthecommithash'}
+
+        source_maintainer.add_version(manifest.name, manifest.version, version_details)
 
 
 if __name__ == '__main__':
