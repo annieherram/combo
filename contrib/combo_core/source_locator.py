@@ -127,6 +127,9 @@ class JsonSourceHandler:
             return project_details[self.IDENTIFIER_TYPE_KEYWORD]
         return self.DEFAULT_SRC_TYPE
 
+    def get_json_file_path(self):
+        return str(self._projects)
+
 
 class JsonSourceLocator(JsonSourceHandler, SourceLocator):
     def __init__(self, json_path):

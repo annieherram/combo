@@ -160,6 +160,9 @@ class JsonFile(dict):
         super(JsonFile, self).__setitem__(key, value)
         self._update_file()
 
+    def __str__(self):
+        return self.file_path
+
 
 def xfilter(func, iterable):
     filtered = list(filter(func, iterable))

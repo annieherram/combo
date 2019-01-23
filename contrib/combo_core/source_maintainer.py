@@ -1,7 +1,22 @@
 from .source_locator import *
 
 
-class JsonSourceMaintainer(JsonSourceLocator):
+class VersionAlreadyExists(ComboException):
+    pass
+
+
+class SourceMaintainer(SourceLocator):
+    def get_source(self, project_name, version):
+        raise NotImplementedError()
+
+    def add_project(self, project_name, source_type=None):
+        raise NotImplementedError()
+
+    def add_version(self, project_name, project_version, version_details):
+        raise NotImplementedError()
+
+
+class JsonSourceMaintainer(JsonSourceLocator, SourceMaintainer):
     def __init__(self, json_path):
         super(JsonSourceMaintainer, self).__init__(json_path)
 
@@ -31,6 +46,11 @@ class JsonSourceMaintainer(JsonSourceLocator):
         # This function is only relevant for version dependency source types
         source_type = project_details.get(JsonSourceHandler.IDENTIFIER_TYPE_KEYWORD, JsonSourceHandler.DEFAULT_SRC_TYPE)
         assert source_type == 'version_dependent', 'Unsupported action'
+
+        # If the requested version already exists this is an error
+        if str(project_version) in project_details:
+            raise VersionAlreadyExists('Version "{}" of project "{}" already exist in file "{}"'.format(
+                project_version, project_name, self.get_json_file_path()))
 
         # Remove details which are not necessary due to defaults
         project_defaults = project_details.get(VersionDependentSourceSupplier.SOURCE_DEFAULTS_KEYWORD)
