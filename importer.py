@@ -3,10 +3,14 @@ Handles importing dependencies from multiple possible sources (git repository, z
 """
 
 from __future__ import print_function
-from combo_core.compat import appdata_dir_path
-from combo_nodes import *
-from server_communicator import *
+from .compat import appdata_dir_path
+from .combo_nodes import *
+from .source_locator import *
 import json
+
+
+class NonExistingLocalPath(ComboException):
+    pass
 
 
 class DependencyBase(object):
@@ -21,42 +25,88 @@ class DependencyBase(object):
         raise NotImplementedError()
 
 
-class GitDependency(DependencyBase):
-    REMOTE_URL_KEYWORD = 'remote_url'
-    COMMIT_HASH_KEYWORD = 'commit_hash'
+class SourceDetailsProvider:
+    def __init__(self, working_dir):
+        self._handlers = {
+            GitDetailsProvider.TYPE_NAME: GitDetailsProvider,
+            LocalPathDetailsProvider.TYPE_NAME: LocalPathDetailsProvider
+        }
 
+        self._working_dir = working_dir
+
+    def get_details(self, source_type):
+        provider = self._handlers[source_type](self._working_dir)
+        return provider.get_details()
+
+
+class DetailsProviderBase(object):
+    def __init__(self, working_dir):
+        self._working_dir = working_dir
+
+    def _get_initial_dict(self):
+        return {SpecificVersionHandler.TYPE_KEYWORD: self.get_type()}
+
+    def get_type(self):
+        raise NotImplementedError()
+
+    def get_details(self):
+        raise NotImplementedError()
+
+
+class LocalPathDetailsProvider(DetailsProviderBase):
+    TYPE_NAME = 'local_path'
+    PATH_KEYWORD = 'local_path'
+
+    def get_type(self):
+        return self.TYPE_NAME
+
+    def get_details(self):
+        details = self._get_initial_dict()
+        details[self.PATH_KEYWORD] = self._working_dir.abs()
+
+
+class GitDetailsKeywords(object):
+    TYPE_NAME = 'git'
+
+    def __init__(self):
+        self.remote_url_keyword = 'remote_url'
+        self.commit_hash_keyword = 'commit_hash'
+
+        self.required_keywords = (self.remote_url_keyword, self.commit_hash_keyword)
+
+
+class GitDetailsProvider(DetailsProviderBase, GitDetailsKeywords):
+    def get_type(self):
+        return self.TYPE_NAME
+
+    def get_details(self):
+        from combo_core import git_api
+
+        repo = git_api.GitRepo(self._working_dir)
+
+        details = self._get_initial_dict()
+        details.update(repo.details())
+
+        return details
+
+
+class GitDependency(DependencyBase, GitDetailsKeywords):
     def clone(self, dst_path):
         from combo_core import git_api
 
-        self.assert_keywords(self.REMOTE_URL_KEYWORD, self.COMMIT_HASH_KEYWORD)
+        self.assert_keywords(*self.required_keywords)
 
         # Clone the dependency
         repo = git_api.GitRepo(dst_path)
 
         try:
-            repo.clone(self.dep_src[self.REMOTE_URL_KEYWORD], self.dep_src[self.COMMIT_HASH_KEYWORD])
+            repo.clone(self.dep_src[self.remote_url_keyword], self.dep_src[self.commit_hash_keyword])
         except BaseException as e:
             # If there is an error, make sure the repo is still closed at the end
             repo.close()
             raise e
 
         repo.close()
-
-
-class NonExistingLocalPath(ComboException):
-    pass
-
-
-class AppDataManuallyEdited(ComboException):
-    pass
-
-
-class AppDataCloneManuallyDeleted(AppDataManuallyEdited):
-    pass
-
-
-class ServerUnavailable(ComboException):
-    pass
 
 
 class LocalPathDependency(DependencyBase):
@@ -70,6 +120,14 @@ class LocalPathDependency(DependencyBase):
             raise NonExistingLocalPath('Local path {} does not exist'.format(src_path))
 
         Directory(src_path).copy_to(dst_path)
+
+
+class AppDataManuallyEdited(ComboException):
+    pass
+
+
+class AppDataCloneManuallyDeleted(AppDataManuallyEdited):
+    pass
 
 
 class CachedData:
@@ -150,23 +208,17 @@ class CachedData:
             self.remove(dep_to_remove)
 
 
-class Importer:
+class Importer(object):
     def __init__(self, sources_locator):
         """
         Construct a dependencies importer
-        :param sources_locator: could be either a source locator which works with a server,
-                                or a json sources locator in case a server is not available
+        :param sources_locator: an implementation of the SourceLocator interface
         """
         self._handlers = {
             'git': GitDependency,
             'local_path': LocalPathDependency
         }
-
-        if isinstance(sources_locator, ServerSourceLocator):
-            self._server_available = True
-        elif isinstance(sources_locator, JsonSourceLocator):
-            self._server_available = False
-        else:
+        if not isinstance(sources_locator, SourceLocator):
             raise UnhandledComboException('Unsupported source locator type "{}"'.format(type(sources_locator)))
 
         self._source_locator = sources_locator
@@ -203,12 +255,6 @@ class Importer:
         self._cached_data.add(combo_dep)
         return clone_dir
 
-    def get_all_sources_map(self):
-        if not isinstance(self._source_locator, ServerSourceLocator):
-            raise ServerUnavailable('Unable to get all sources map without combo server')
-
-        return self._source_locator.all_sources()
-
     def get_dep_hash(self, dep):
         """
         :param dep: A combo dependency
@@ -218,13 +264,7 @@ class Importer:
         if self._cached_data.has_dep(dep):
             return self._cached_data.get_hash(dep)
 
-        # Dependency is not cached
-        # if there is a server, just use the all sources json
-        if self._server_available:
-            sources_map = self.get_all_sources_map()
-            return sources_map[str(dep)]['hash']
-
-        # If we don't have the server available, we need to cache the dependency ourselves
+        # We don't have the server available, so we need to cache the dependency to get its hash
         self.clone(dep)
         return self._cached_data.get_hash(dep)
 

@@ -1,5 +1,5 @@
 from __future__ import print_function
-from importer import *
+from server_communicator import *
 from combo_tree import *
 
 
@@ -27,7 +27,9 @@ class DependenciesManager:
         self._base_manifest = Manifest(self._repo_dir, ComboRoot())
         assert self._base_manifest.valid_as_root(), '{} is not valid as root manifest'.format(self._base_manifest)
 
-        self._importer = Importer(sources_locator)
+        importer_type = ServerImporter if isinstance(sources_locator, ServerSourceLocator) else Importer
+        self._importer = importer_type(sources_locator)
+
         self._tree = ComboTree(self._importer)
         self._tree_initialized = False
 

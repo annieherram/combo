@@ -1,5 +1,6 @@
 from __future__ import print_function
 from combo_core.source_maintainer import *
+from combo_core.importer import *
 from combo_core.compat import connection_error
 import requests
 import json
@@ -84,3 +85,31 @@ class ServerSourceMaintainer(ServerSourceLocator, SourceMaintainer):
         except BaseException as e:
             raise ServerConnectionError(
                 'Could not post version {} for project {}'.format(project_version, project_name), e)
+
+
+class ServerImporter(Importer):
+    def __init__(self, sources_locator):
+        """
+        Construct a dependencies importer which uses the combo server
+        :param sources_locator: A ServerSourceLocator object
+        """
+        if not isinstance(sources_locator, ServerSourceLocator):
+            raise UnhandledComboException(
+                'Invalid sources locator for type for server importer: {}'.format(type(sources_locator)))
+        super(ServerImporter, self).__init__(sources_locator)
+
+    def get_all_sources_map(self):
+        return self._source_locator.all_sources()
+
+    def get_dep_hash(self, dep):
+        """
+        :param dep: A combo dependency
+        :return: The hash of the given dependency
+        """
+        # If already cached, return the cached hash
+        if self._cached_data.has_dep(dep):
+            return self._cached_data.get_hash(dep)
+
+        # Dependency is not cached, use the all sources json instead
+        sources_map = self.get_all_sources_map()
+        return sources_map[str(dep)]['hash']

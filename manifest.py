@@ -1,6 +1,5 @@
-from combo_core.compat import string_types
 from combo_core import *
-from combo_nodes import *
+from .combo_nodes import *
 import json
 
 

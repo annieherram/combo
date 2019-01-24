@@ -57,6 +57,7 @@ class ComboCommands(object):
         # Upload
         upload_parser = subparsers.add_parser('upload')
         upload_parser.add_argument('--path', '-p', help='The path of the repository', nargs='?', default=None)
+        upload_parser.add_argument('--type', help='Dependency source type', nargs='?', default='git')
         upload_parser.set_defaults(command=self.upload)
 
     def get_sources_locator(self, server_required=False):
@@ -124,10 +125,12 @@ class ComboCommands(object):
     def upload(self):
         print('Uploading current version to the server')
         source_maintainer = self.get_sources_locator(server_required=True)
-        manifest = Manifest(self.get_working_dir())
 
-        # TODO: Use git commands to get the actual details
-        version_details = {'type': 'git', 'url': 'thisistheurl', 'commit_hash': 'thisisthecommithash'}
+        working_dir = self.get_working_dir()
+        manifest = Manifest(working_dir)
+
+        details_provider = SourceDetailsProvider(working_dir)
+        version_details = details_provider.get_details(self._args.type)
 
         source_maintainer.add_version(manifest.name, manifest.version, version_details)
 
