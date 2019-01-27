@@ -30,6 +30,9 @@ class Directory(object):
     def is_dir(self):
         return os.path.isdir(self.path)
 
+    def abs(self):
+        return os.path.abspath(self.path)
+
     def join(self, *paths):
         target_path = os.path.abspath(os.path.join(self.path, *paths))
         return Directory(target_path)

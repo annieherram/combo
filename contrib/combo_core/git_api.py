@@ -34,6 +34,19 @@ class GitRepo:
         if ref:
             self.checkout(ref)
 
+    def remote_url(self, remote_name, push_url=False):
+        # TODO: Extract URL from repository
+        assert not self.empty() and remote_name == 'origin' and push_url is False
+        return 'https://github.com/annieherram/combo_core.git'
+
+    def commit_hash(self):
+        # TODO: Run git status and check for the commit hash
+        assert not self.empty()
+        return 'thisisnotarealcommithashbutthelengthreal'
+
+    def details(self):
+        return {'url': self.remote_url('origin'), 'commit_hash': self.commit_hash()}
+
     def checkout(self, ref):
         try:
             self._repo.head.reference = ref

@@ -108,7 +108,7 @@ class SourceLocator(object):
         raise NotImplementedError()
 
 
-class JsonSourceHandler:
+class JsonSourceHandler(object):
     IDENTIFIER_TYPE_KEYWORD = 'general_type'
     DEFAULT_SRC_TYPE = 'version_dependent'
 
