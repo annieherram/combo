@@ -5,66 +5,8 @@ Handles importing dependencies from multiple possible sources (git repository, z
 from __future__ import print_function
 from .compat import appdata_dir_path
 from .combo_nodes import *
-from .source_locator import *
+from .source_types import *
 import json
-
-
-class NonExistingLocalPath(ComboException):
-    pass
-
-
-class DependencyBase(object):
-    def __init__(self, dependency_source):
-        self.dep_src = dependency_source
-
-    def assert_keywords(self, *keywords):
-        for keyword in keywords:
-            assert keyword in self.dep_src, 'Invalid import source, missing attribute "{}"'.format(keyword)
-
-    def clone(self, dst_path):
-        raise NotImplementedError()
-
-
-class GitDetailsKeywords(object):
-    TYPE_NAME = 'git'
-
-    def __init__(self):
-        self.remote_url_keyword = 'remote_url'
-        self.commit_hash_keyword = 'commit_hash'
-
-        self.required_keywords = (self.remote_url_keyword, self.commit_hash_keyword)
-
-
-class GitDependency(DependencyBase, GitDetailsKeywords):
-    def clone(self, dst_path):
-        from combo_core import git_api
-
-        self.assert_keywords(*self.required_keywords)
-
-        # Clone the dependency
-        repo = git_api.GitRepo(dst_path)
-
-        try:
-            repo.clone(self.dep_src[self.remote_url_keyword], self.dep_src[self.commit_hash_keyword])
-        except BaseException as e:
-            # If there is an error, make sure the repo is still closed at the end
-            repo.close()
-            raise e
-
-        repo.close()
-
-
-class LocalPathDependency(DependencyBase):
-    PATH_KEYWORD = 'local_path'
-
-    def clone(self, dst_path):
-        self.assert_keywords(self.PATH_KEYWORD)
-
-        src_path = Directory(self.dep_src[self.PATH_KEYWORD])
-        if not src_path.exists():
-            raise NonExistingLocalPath('Local path {} does not exist'.format(src_path))
-
-        Directory(src_path).copy_to(dst_path)
 
 
 class AppDataManuallyEdited(ComboException):
@@ -161,7 +103,7 @@ class Importer(object):
         """
         self._handlers = {
             'git': GitDependency,
-            'local_path': LocalPathDependency
+            'file_system': FileSystemDependency
         }
         if not isinstance(sources_locator, SourceLocator):
             raise UnhandledComboException('Unsupported source locator type "{}"'.format(type(sources_locator)))
@@ -224,3 +166,17 @@ class Importer(object):
 
     def cleanup(self):
         self._cached_data.apply_limit()
+
+
+class SourceDetailsProvider:
+    def __init__(self, working_dir):
+        self._handlers = {
+            GitDetailsProvider.TYPE_NAME: GitDetailsProvider,
+            FileSystemDetailsProvider.TYPE_NAME: FileSystemDetailsProvider
+        }
+
+        self._working_dir = working_dir
+
+    def get_details(self, source_type):
+        provider = self._handlers[source_type](self._working_dir)
+        return provider.get_details()

@@ -153,7 +153,7 @@ class JsonFile(dict):
         assert isinstance(content, dict), 'The JSON file should contain a dictionary'
 
         for key, val in content.items():
-            self[key] = val
+            super(JsonFile, self).__setitem__(key, val)
 
     def _update_file(self):
         with open(self.file_path, 'w') as f:
