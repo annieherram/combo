@@ -1,6 +1,6 @@
 from __future__ import print_function
 from combo_core import *
-from manifest import *
+from combo_core.manifest import *
 from combo_core.version import *
 
 

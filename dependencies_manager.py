@@ -7,7 +7,7 @@ class CorruptedDependency(ComboException):
     pass
 
 
-class NonExistingCachedPath(NonExistingLocalPath):
+class NonExistingCachedPath(NonExistingPath):
     pass
 
 
@@ -165,7 +165,7 @@ class DependenciesManager:
                 print('Removing deprecated dependency {}'.format(dep.name))
                 self.get_dependency_path(dep.name).delete()
 
-            except NonExistingLocalPath:
+            except NonExistingPath:
                 pass
 
             self._extern_dependency(dep)
@@ -181,9 +181,9 @@ class DependenciesManager:
         cached_dir = self._importer.get_cached_path(dep)
 
         if not contrib_dir.exists():
-            raise NonExistingLocalPath('Comparing content of non existing contrib directory {}'.format(contrib_dir))
+            raise NonExistingPath('Comparing content of non existing contrib directory {}'.format(contrib_dir))
         if not cached_dir.exists():
-            raise NonExistingLocalPath('Comparing content of non existing cached directory {}'.format(cached_dir))
+            raise NonExistingPath('Comparing content of non existing cached directory {}'.format(cached_dir))
 
         return contrib_dir == cached_dir
 
