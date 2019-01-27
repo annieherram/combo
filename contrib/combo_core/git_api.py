@@ -10,16 +10,26 @@ class ReferenceNotFound(ComboException):
 
 class GitRepo:
     def __init__(self, local_path):
-        self.local_path = local_path
+        self.local_path = Directory(local_path)
         self._git_dir = self.local_path.join('.git')
 
+        self._loaded = False
         self._repo = None
         self._tags = None
+
+        if self._git_dir.exists():
+            self.load()
 
     def empty(self):
         if not self.local_path.exists():
             return True
         return len(os.listdir(self.local_path.path)) == 0
+
+    def load(self):
+        assert self._git_dir.exists(), 'Trying to load a non existing git repository'
+
+        self._repo = git.Repo(self._git_dir.path)
+        self._loaded = True
 
     def clone(self, remote_url, ref=None):
         if not self.empty():
@@ -30,19 +40,22 @@ class GitRepo:
 
         # TODO: Add timeout. Fix 'local_projects.json' file in case of timeout before exiting
         self._repo = git.Repo.clone_from(remote_url, self.local_path.path)
+        self._loaded = True
 
         if ref:
             self.checkout(ref)
 
-    def remote_url(self, remote_name, push_url=False):
-        # TODO: Extract URL from repository
-        assert not self.empty() and remote_name == 'origin' and push_url is False
-        return 'https://github.com/annieherram/combo_core.git'
+    def remote_url(self, remote_name):
+        assert self._loaded, 'Trying to get remote URL of a repository which was not loaded'
+        remote = xfilter(lambda r: r.name == remote_name, self._repo.remotes)
+        assert len(list(remote.urls)) > 0, 'No urls for remote {}'.format(remote_name)
+
+        return next(remote.urls)
 
     def commit_hash(self):
-        # TODO: Run git status and check for the commit hash
-        assert not self.empty()
-        return 'thisisnotarealcommithashbutthelengthreal'
+        assert self._loaded, 'Trying to get a commit hash of a repository which was not loaded'
+        commit_hash = str(self._repo.head.commit)
+        return commit_hash
 
     def details(self):
         return {'url': self.remote_url('origin'), 'commit_hash': self.commit_hash()}
