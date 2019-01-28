@@ -7,6 +7,7 @@ from .compat import appdata_dir_path
 from .combo_nodes import *
 from .source_types import *
 import json
+import tempfile
 
 
 class AppDataManuallyEdited(ComboException):
@@ -96,7 +97,7 @@ class CachedData:
 
 
 class Importer(object):
-    def __init__(self, sources_locator):
+    def __init__(self, sources_locator, clones_dir_name='clones'):
         """
         Construct a dependencies importer
         :param sources_locator: an implementation of the SourceLocator interface
@@ -109,37 +110,51 @@ class Importer(object):
             raise UnhandledComboException('Unsupported source locator type "{}"'.format(type(sources_locator)))
 
         self._source_locator = sources_locator
-        self._cached_data = CachedData('clones')
+        self._cached_data = CachedData(clones_dir_name)
 
-    def clone(self, combo_dep):
-        clone_dir = self._cached_data.dep_dir_path(combo_dep)
-
-        # If the requested import already exists in metadata, ignore it
-        if clone_dir.exists():
-            try:
-                self._cached_data.valid(combo_dep)
-                return clone_dir
-            except AppDataManuallyEdited:
-                self._cached_data.remove(combo_dep)
-                clone_dir.delete()
-
-        print('Caching dependency {}'.format(combo_dep))
+    def _get_import_source(self, combo_dep):
+        print('Checking the source of dependency {}'.format(combo_dep))
 
         import_src = self._source_locator.get_source(*combo_dep.as_tuple())
         if import_src['src_type'] not in self._handlers:
             raise NotImplementedError('Can not import dependency with source type "{}"'.format(import_src.src_type))
 
-        handler_type = self._handlers[import_src['src_type']]
-        import_handler = handler_type(import_src)
+        return import_src
+
+    def clone(self, src):
+        if isinstance(src, ComboDep):
+            clone_dir = self._cached_data.dep_dir_path(src)
+
+            # If the requested import already exists in metadata, ignore it
+            if clone_dir.exists():
+                try:
+                    self._cached_data.valid(src)
+                    return clone_dir
+                except AppDataManuallyEdited:
+                    self._cached_data.remove(src)
+                    clone_dir.delete()
+
+            import_details = self._get_import_source(src)
+        else:
+            clone_dir = Directory(tempfile.mkdtemp())
+            import_details = src
+
+        handler_type = self._handlers[import_details['src_type']]
+        import_handler = handler_type(import_details)
 
         try:
+            print('Cloning from {} into {}'.format(import_details, clone_dir))
             import_handler.clone(clone_dir)
         except BaseException as e:
             # Delete the imported dependency in case of error, don't leave a corrupted one
             clone_dir.delete()
             raise e
 
-        self._cached_data.add(combo_dep)
+        # Add the clone to the cache only if a combo dependency was passed
+        if isinstance(src, ComboDep):
+            print('Caching dependency {}'.format(src))
+            self._cached_data.add(src)
+
         return clone_dir
 
     def get_dep_hash(self, dep):

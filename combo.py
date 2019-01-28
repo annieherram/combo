@@ -63,11 +63,11 @@ class ComboCommands(object):
     def get_sources_locator(self, server_required=False):
         if not server_required:
             if self._args.sources_json is not None:
-                return JsonSourceLocator(self._args.sources_json)
+                return IndexerSourceLocator(self._args.sources_json)
 
             print('Sources json was not specified. Combo server will be contacted for sources')
 
-        return ServerSourceMaintainer(COMBO_SERVER_ADDRESS)
+        return RemoteSourceMaintainer(COMBO_SERVER_ADDRESS)
 
     def get_working_dir(self):
         work_dir = Directory(self._args.path or os.path.curdir)
@@ -132,7 +132,7 @@ class ComboCommands(object):
         details_provider = SourceDetailsProvider(working_dir)
         version_details = details_provider.get_details(self._args.type)
 
-        source_maintainer.add_version(manifest.name, manifest.version, version_details)
+        source_maintainer.add_version(version_details, project_name=manifest.name, project_version=manifest.version)
 
 
 if __name__ == '__main__':

@@ -16,7 +16,7 @@ class NackFromServer(ComboException):
     pass
 
 
-class ServerSourceLocator(SourceLocator):
+class RemoteSourceLocator(SourceLocator):
     def __init__(self, address):
         self._addr = address
         self._url = 'http://' + ':'.join(str(x) for x in address)
@@ -57,9 +57,9 @@ class ServerSourceLocator(SourceLocator):
         return sources_dict
 
 
-class ServerSourceMaintainer(ServerSourceLocator, SourceMaintainer):
+class RemoteSourceMaintainer(RemoteSourceLocator, SourceMaintainer):
     def __init__(self, address):
-        super(ServerSourceMaintainer, self).__init__(address)
+        super(RemoteSourceMaintainer, self).__init__(address)
 
     def add_project(self, project_name, source_type=None):
         req_url = self._extended_url('add_project')
@@ -74,42 +74,45 @@ class ServerSourceMaintainer(ServerSourceLocator, SourceMaintainer):
         except BaseException as e:
             raise ServerConnectionError('Could not post new project {}'.format(project_name), e)
 
-    def add_version(self, project_name, project_version, version_details):
+    def add_version(self, version_details, **kwargs):
+        # kwargs is not relevant here, because it is not sent to the server anyway
+
         req_url = self._extended_url('add_version')
-        data = {'project_name': project_name, 'project_version': project_version,
-                'version_details': json.dumps(version_details)}
+        data = {'version_details': json.dumps(version_details)}
 
         try:
             response = requests.post(req_url, data=data)
             print('Server response: {}'.format(response.content))
         except BaseException as e:
-            raise ServerConnectionError(
-                'Could not post version {} for project {}'.format(project_version, project_name), e)
+            raise ServerConnectionError('Could not post version located at {}'.format(version_details), e)
 
 
-class ServerImporter(Importer):
+class RemoteImporter(Importer):
     def __init__(self, sources_locator):
         """
         Construct a dependencies importer which uses the combo server
-        :param sources_locator: A ServerSourceLocator object
+        :param sources_locator: A RemoteSourceLocator object
         """
-        if not isinstance(sources_locator, ServerSourceLocator):
+        if not isinstance(sources_locator, RemoteSourceLocator):
             raise UnhandledComboException(
                 'Invalid sources locator for type for server importer: {}'.format(type(sources_locator)))
-        super(ServerImporter, self).__init__(sources_locator)
+        super(RemoteImporter, self).__init__(sources_locator)
 
     def get_all_sources_map(self):
         return self._source_locator.all_sources()
 
-    def get_dep_hash(self, dep):
-        """
-        :param dep: A combo dependency
-        :return: The hash of the given dependency
-        """
-        # If already cached, return the cached hash
-        if self._cached_data.has_dep(dep):
-            return self._cached_data.get_hash(dep)
-
-        # Dependency is not cached, use the all sources json instead
-        sources_map = self.get_all_sources_map()
-        return sources_map[str(dep)]['hash']
+    # TODO: Return this optimized implementation once the server has a real implementation of the all sources map
+    # def get_dep_hash(self, dep):
+    #     """
+    #     :param dep: A combo dependency
+    #     :return: The hash of the given dependency
+    #     """
+    #     # If already cached, return the cached hash
+    #     if self._cached_data.has_dep(dep):
+    #         return self._cached_data.get_hash(dep)
+    #
+    #     # Dependency is not cached, use the all sources json instead
+    #     sources_map = self.get_all_sources_map()
+    #     assert str(dep) in sources_map, 'Dependency "{}" not found on the remote sources map'.format(dep)
+    #
+    #     return sources_map[str(dep)]['hash']

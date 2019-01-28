@@ -108,7 +108,7 @@ class SourceLocator(object):
         raise NotImplementedError()
 
 
-class JsonSourceHandler(object):
+class IndexerSourceHandler(object):
     IDENTIFIER_TYPE_KEYWORD = 'general_type'
     DEFAULT_SRC_TYPE = 'version_dependent'
 
@@ -131,9 +131,9 @@ class JsonSourceHandler(object):
         return str(self._projects)
 
 
-class JsonSourceLocator(JsonSourceHandler, SourceLocator):
+class IndexerSourceLocator(IndexerSourceHandler, SourceLocator):
     def __init__(self, json_path):
-        super(JsonSourceLocator, self).__init__(json_path)
+        super(IndexerSourceLocator, self).__init__(json_path)
 
     def project_exists(self, project_name):
         return project_name in self._projects

@@ -27,7 +27,7 @@ class DependenciesManager:
         self._base_manifest = Manifest(self._repo_dir, ComboRoot())
         assert self._base_manifest.valid_as_root(), '{} is not valid as root manifest'.format(self._base_manifest)
 
-        importer_type = ServerImporter if isinstance(sources_locator, ServerSourceLocator) else Importer
+        importer_type = RemoteImporter if isinstance(sources_locator, RemoteSourceLocator) else Importer
         self._importer = importer_type(sources_locator)
 
         self._tree = ComboTree(self._importer)
