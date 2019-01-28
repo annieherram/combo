@@ -1,5 +1,5 @@
 from __future__ import print_function
-from combo_core.version import *
+from .version import *
 
 
 class ComboNode(object):

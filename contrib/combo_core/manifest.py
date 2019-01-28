@@ -1,6 +1,5 @@
-from combo_core.compat import string_types
 from combo_core import *
-from combo_nodes import *
+from .combo_nodes import *
 import json
 
 
@@ -60,7 +59,8 @@ class Manifest:
         if self.valid_as_root():
             self.output_dir = self.base_path.join(self.manifest[self.output_dir_keyword])
 
-        self.validate(expected_combo_node if expected_combo_node is not None else dir_path.name())
+        if expected_combo_node is not False:
+            self.validate(expected_combo_node if expected_combo_node is not None else dir_path.name())
 
     def validate(self, expected):
         if isinstance(expected, string_types):

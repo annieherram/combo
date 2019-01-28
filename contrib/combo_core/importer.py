@@ -2,48 +2,12 @@
 Handles importing dependencies from multiple possible sources (git repository, zip file, server, etc...)
 """
 
-from combo_core.compat import appdata_dir_path
-from combo_nodes import *
-from server_communicator import *
+from __future__ import print_function
+from .compat import appdata_dir_path
+from .combo_nodes import *
+from .source_types import *
 import json
-
-
-class DependencyBase(object):
-    def __init__(self, dependency_source):
-        self.dep_src = dependency_source
-
-    def assert_keywords(self, *keywords):
-        for keyword in keywords:
-            assert keyword in self.dep_src, 'Invalid import source, missing attribute "{}"'.format(keyword)
-
-    def clone(self, dst_path):
-        raise NotImplementedError()
-
-
-class GitDependency(DependencyBase):
-    REMOTE_URL_KEYWORD = 'remote_url'
-    COMMIT_HASH_KEYWORD = 'commit_hash'
-
-    def clone(self, dst_path):
-        from combo_core import git_api
-
-        self.assert_keywords(self.REMOTE_URL_KEYWORD, self.COMMIT_HASH_KEYWORD)
-
-        # Clone the dependency
-        repo = git_api.GitRepo(dst_path)
-
-        try:
-            repo.clone(self.dep_src[self.REMOTE_URL_KEYWORD], self.dep_src[self.COMMIT_HASH_KEYWORD])
-        except BaseException as e:
-            # If there is an error, make sure the repo is still closed at the end
-            repo.close()
-            raise e
-
-        repo.close()
-
-
-class NonExistingLocalPath(ComboException):
-    pass
+import tempfile
 
 
 class AppDataManuallyEdited(ComboException):
@@ -54,23 +18,6 @@ class AppDataCloneManuallyDeleted(AppDataManuallyEdited):
     pass
 
 
-class ServerUnavailable(ComboException):
-    pass
-
-
-class LocalPathDependency(DependencyBase):
-    PATH_KEYWORD = 'local_path'
-
-    def clone(self, dst_path):
-        self.assert_keywords(self.PATH_KEYWORD)
-
-        src_path = Directory(self.dep_src[self.PATH_KEYWORD])
-        if not src_path.exists():
-            raise NonExistingLocalPath('Local path {} does not exist'.format(src_path))
-
-        Directory(src_path).copy_to(dst_path)
-
-
 class CachedData:
     def __init__(self, clones_dir_name):
         self._cache_size = 64 * 1024**2  # 64 MB
@@ -79,11 +26,7 @@ class CachedData:
 
         # If the JSON file doesn't exist yet, create a default one
         self._json_file_path = self.appdata_dir.join('local_projects.json').get_file(json.dumps(dict()))
-
-        with open(self._json_file_path, 'r') as f:
-            self._cached_projects = json.load(f)
-
-        assert isinstance(self._cached_projects, dict), 'The local projects json should contain a projects dictionary'
+        self._cached_projects = JsonFile(self._json_file_path)
 
     def dep_stored_data(self, dep):
         if str(dep) not in self._cached_projects:
@@ -133,14 +76,9 @@ class CachedData:
         # Remove the dependency from the json if exists and update the file
         if str(dep) in self._cached_projects:
             self._cached_projects.pop(str(dep))
-            self._update_file()
 
     def _get_used_storage(self):
         return self._clones_dir.size()
-
-    def _update_file(self):
-        with open(self._json_file_path, 'w') as f:
-            json.dump(self._cached_projects, f, indent=4)
 
     def dep_dir_path(self, dep):
         return self._clones_dir.join(dep.normalized_name_dir(), dep.normalized_version_dir())
@@ -148,7 +86,6 @@ class CachedData:
     def add(self, dep):
         directory = self.dep_dir_path(dep)
         self._cached_projects[str(dep)] = {'size': directory.size(), 'hash': hash(directory)}
-        self._update_file()
 
     def apply_limit(self):
         """
@@ -159,59 +96,66 @@ class CachedData:
             self.remove(dep_to_remove)
 
 
-class Importer:
-    def __init__(self, sources_json=None):
+class Importer(object):
+    def __init__(self, sources_locator, clones_dir_name='clones'):
+        """
+        Construct a dependencies importer
+        :param sources_locator: an implementation of the SourceLocator interface
+        """
         self._handlers = {
             'git': GitDependency,
-            'local_path': LocalPathDependency
+            'file_system': FileSystemDependency
         }
+        if not isinstance(sources_locator, SourceLocator):
+            raise UnhandledComboException('Unsupported source locator type "{}"'.format(type(sources_locator)))
 
-        self._server_available = sources_json is None
-        if self._server_available:
-            self._source_locator = ServerSourceLocator(COMBO_SERVER_ADDRESS)
-        else:
-            self._source_locator = JsonSourceLocator(sources_json)
-        assert isinstance(self._source_locator, SourceLocator), 'Invalid source locator type'
+        self._source_locator = sources_locator
+        self._cached_data = CachedData(clones_dir_name)
 
-        self._cached_data = CachedData('clones')
-
-    def clone(self, combo_dep):
-        clone_dir = self._cached_data.dep_dir_path(combo_dep)
-
-        # If the requested import already exists in metadata, ignore it
-        if clone_dir.exists():
-            try:
-                self._cached_data.valid(combo_dep)
-                return clone_dir
-            except AppDataManuallyEdited:
-                self._cached_data.remove(combo_dep)
-                clone_dir.delete()
-
-        print('Caching dependency {}'.format(combo_dep))
+    def _get_import_source(self, combo_dep):
+        print('Checking the source of dependency {}'.format(combo_dep))
 
         import_src = self._source_locator.get_source(*combo_dep.as_tuple())
         if import_src['src_type'] not in self._handlers:
             raise NotImplementedError('Can not import dependency with source type "{}"'.format(import_src.src_type))
 
-        handler_type = self._handlers[import_src['src_type']]
-        import_handler = handler_type(import_src)
+        return import_src
+
+    def clone(self, src):
+        if isinstance(src, ComboDep):
+            clone_dir = self._cached_data.dep_dir_path(src)
+
+            # If the requested import already exists in metadata, ignore it
+            if clone_dir.exists():
+                try:
+                    self._cached_data.valid(src)
+                    return clone_dir
+                except AppDataManuallyEdited:
+                    self._cached_data.remove(src)
+                    clone_dir.delete()
+
+            import_details = self._get_import_source(src)
+        else:
+            clone_dir = Directory(tempfile.mkdtemp())
+            import_details = src
+
+        handler_type = self._handlers[import_details['src_type']]
+        import_handler = handler_type(import_details)
 
         try:
+            print('Cloning from {} into {}'.format(import_details, clone_dir))
             import_handler.clone(clone_dir)
         except BaseException as e:
             # Delete the imported dependency in case of error, don't leave a corrupted one
             clone_dir.delete()
             raise e
 
-        self._cached_data.add(combo_dep)
+        # Add the clone to the cache only if a combo dependency was passed
+        if isinstance(src, ComboDep):
+            print('Caching dependency {}'.format(src))
+            self._cached_data.add(src)
+
         return clone_dir
-
-    def get_all_sources_map(self):
-        if not isinstance(self._source_locator, ServerSourceLocator):
-            raise ServerUnavailable('Unable to get all sources map without combo server')
-
-        # TODO: Contact the server to get the actual map
-        return self._source_locator.all_sources()
 
     def get_dep_hash(self, dep):
         """
@@ -222,13 +166,7 @@ class Importer:
         if self._cached_data.has_dep(dep):
             return self._cached_data.get_hash(dep)
 
-        # Dependency is not cached
-        # if there is a server, just use the all sources json
-        if self._server_available:
-            sources_map = self.get_all_sources_map()
-            return sources_map[str(dep)]['hash']
-
-        # If we don't have the server available, we need to cache the dependency ourselves
+        # We don't have the server available, so we need to cache the dependency to get its hash
         self.clone(dep)
         return self._cached_data.get_hash(dep)
 
@@ -243,3 +181,17 @@ class Importer:
 
     def cleanup(self):
         self._cached_data.apply_limit()
+
+
+class SourceDetailsProvider:
+    def __init__(self, working_dir):
+        self._handlers = {
+            GitDetailsProvider.TYPE_NAME: GitDetailsProvider,
+            FileSystemDetailsProvider.TYPE_NAME: FileSystemDetailsProvider
+        }
+
+        self._working_dir = working_dir
+
+    def get_details(self, source_type):
+        provider = self._handlers[source_type](self._working_dir)
+        return provider.get_details()

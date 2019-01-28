@@ -1,7 +1,10 @@
-from combo_core.source_locator import *
-from combo_core.compat import urllib, connection_error
+from __future__ import print_function
+from combo_core.source_maintainer import *
+from combo_core.importer import *
+from combo_core.compat import connection_error
+import requests
+import json
 
-COMBO_SERVER_ADDRESS = ('localhost', 5000)
 MAX_RESPONSE_LENGTH = 4096
 
 
@@ -13,57 +16,103 @@ class NackFromServer(ComboException):
     pass
 
 
-class ServerSourceLocator(SourceLocator):
+class RemoteSourceLocator(SourceLocator):
     def __init__(self, address):
         self._addr = address
+        self._url = 'http://' + ':'.join(str(x) for x in address)
 
-    def contact_server(self, project_name, version):
-        def get_url(**params):
-            url = 'http://' + ':'.join(str(x) for x in self._addr)
-            if params:
-                url += '/?' + '&'.join('{}={}'.format(key, val) for key, val in params.items())
-
-            return url.replace(' ', '%20')
-
-        url = get_url(request_type='get_source', project_name=project_name, project_version=str(version))
-        contents = urllib.urlopen(url).read()
-
-        try:
-            source = json.loads(contents.decode())
-        except BaseException as e:
-            raise NackFromServer(e, contents)
-
-        return source
+    def _extended_url(self, *args):
+        return '/'.join((self._url, ) + args)
 
     def get_source(self, project_name, version):
+        req_url = self._extended_url('get_source')
+        params = {'project_name': project_name, 'project_version': str(version)}
+
         try:
-            source = self.contact_server(project_name, version)
-        except NackFromServer:
-            raise UndefinedProject('Server could not locate project {} with version {}'.format(project_name, version))
+            response = requests.get(req_url, params=params)
+        except BaseException as e:
+            raise ServerConnectionError(
+                'Could not get response for request to "{}" with params "{}"'.format(req_url, params), e)
+
+        try:
+            source = json.loads(response.content.decode())
+        except BaseException as e:
+            raise UndefinedProject('Server could not locate project "{}" version "{}"'.format(project_name, version), e)
 
         return source
 
     def all_sources(self):
-        def full_json():
-            d = {
-                "(Core Library, v2.1)": {
-                    "hash": 1507179887,
-                    "size": 126
-                },
-                "(Lib A, v1.7)": {
-                    "hash": 501194260,
-                    "size": 229
-                },
-                "(Lib A, v1.6)": {
-                    "hash": 1836199491,
-                    "size": 220
-                },
-                "(Lib B, v1.4)": {
-                    "hash": 1555234999,
-                    "size": 221
-                }
-            }
+        req_url = self._extended_url('get_available_versions')
 
-            return json.dumps(d)
+        try:
+            response = requests.get(req_url)
+        except BaseException as e:
+            raise ServerConnectionError('Could not get response for request to "{}"'.format(req_url), e)
 
-        return json.loads(full_json())
+        try:
+            sources_dict = json.loads(response.content.decode())
+        except BaseException as e:
+            raise ServerConnectionError('Server did not return a list of the available versions', e)
+
+        return sources_dict
+
+
+class RemoteSourceMaintainer(RemoteSourceLocator, SourceMaintainer):
+    def __init__(self, address):
+        super(RemoteSourceMaintainer, self).__init__(address)
+
+    def add_project(self, project_name, source_type=None):
+        req_url = self._extended_url('add_project')
+
+        data = {'project_name': project_name}
+        if source_type:
+            data['source_type'] = source_type
+
+        try:
+            response = requests.post(req_url, data=data)
+            print('Server response: {}'.format(response.content))
+        except BaseException as e:
+            raise ServerConnectionError('Could not post new project {}'.format(project_name), e)
+
+    def add_version(self, version_details, **kwargs):
+        # kwargs is not relevant here, because it is not sent to the server anyway
+
+        req_url = self._extended_url('add_version')
+        data = {'version_details': json.dumps(version_details)}
+
+        try:
+            response = requests.post(req_url, data=data)
+            print('Server response: {}'.format(response.content))
+        except BaseException as e:
+            raise ServerConnectionError('Could not post version located at {}'.format(version_details), e)
+
+
+class RemoteImporter(Importer):
+    def __init__(self, sources_locator):
+        """
+        Construct a dependencies importer which uses the combo server
+        :param sources_locator: A RemoteSourceLocator object
+        """
+        if not isinstance(sources_locator, RemoteSourceLocator):
+            raise UnhandledComboException(
+                'Invalid sources locator for type for server importer: {}'.format(type(sources_locator)))
+        super(RemoteImporter, self).__init__(sources_locator)
+
+    def get_all_sources_map(self):
+        return self._source_locator.all_sources()
+
+    # TODO: Return this optimized implementation once the server has a real implementation of the all sources map
+    # def get_dep_hash(self, dep):
+    #     """
+    #     :param dep: A combo dependency
+    #     :return: The hash of the given dependency
+    #     """
+    #     # If already cached, return the cached hash
+    #     if self._cached_data.has_dep(dep):
+    #         return self._cached_data.get_hash(dep)
+    #
+    #     # Dependency is not cached, use the all sources json instead
+    #     sources_map = self.get_all_sources_map()
+    #     assert str(dep) in sources_map, 'Dependency "{}" not found on the remote sources map'.format(dep)
+    #
+    #     return sources_map[str(dep)]['hash']

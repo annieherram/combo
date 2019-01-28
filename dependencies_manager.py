@@ -1,5 +1,5 @@
 from __future__ import print_function
-from importer import *
+from server_communicator import *
 from combo_tree import *
 
 
@@ -7,7 +7,7 @@ class CorruptedDependency(ComboException):
     pass
 
 
-class NonExistingCachedPath(NonExistingLocalPath):
+class NonExistingCachedPath(NonExistingPath):
     pass
 
 
@@ -20,14 +20,16 @@ class DependenciesManager:
         'Modified content': 'Modified content'
     }
 
-    def __init__(self, repo_dir, sources_json=None):
+    def __init__(self, repo_dir, sources_locator):
         self._repo_dir = repo_dir
 
         # Root directory must have base manifest
         self._base_manifest = Manifest(self._repo_dir, ComboRoot())
         assert self._base_manifest.valid_as_root(), '{} is not valid as root manifest'.format(self._base_manifest)
 
-        self._importer = Importer(sources_json)
+        importer_type = RemoteImporter if isinstance(sources_locator, RemoteSourceLocator) else Importer
+        self._importer = importer_type(sources_locator)
+
         self._tree = ComboTree(self._importer)
         self._tree_initialized = False
 
@@ -45,6 +47,7 @@ class DependenciesManager:
         Dirty repository means there is a difference between the current manifest on the working directory
         and the versions cloned to the working directory
         :param verbose: print outputs flag
+        :param force: ignore dependencies corruption
         :return: A boolean indication for the dirty state
         """
         self._initialize_tree()
@@ -52,7 +55,7 @@ class DependenciesManager:
         if not force:
             # If a dependency is corrupted, it's not considered dirty since the problem is not due to manifest update
             if self.is_corrupted():
-                # TODO: A dependency can be both dirty an corrupted if the reason is a different dependency.
+                # TODO: A repository can be both dirty an corrupted if the reason is a different dependency.
                 # We still have to check the rest of them for dirtiness
                 print('No informative message yet. repository is corrupted')
                 return False
@@ -87,6 +90,7 @@ class DependenciesManager:
             expected_hash = self._importer.get_dep_hash(combo_dep)
             actual_hash = hash(contrib_dir)
 
+            # TODO: Hash should consider git ignore, we need to think about a way to fix this issue
             if actual_hash != expected_hash:
                 raise CorruptedDependency('Content found in directory "{}" does not match expected content of "{}"'
                                           .format(contrib_dir, combo_dep))
@@ -161,7 +165,7 @@ class DependenciesManager:
                 print('Removing deprecated dependency {}'.format(dep.name))
                 self.get_dependency_path(dep.name).delete()
 
-            except NonExistingLocalPath:
+            except NonExistingPath:
                 pass
 
             self._extern_dependency(dep)
@@ -177,9 +181,9 @@ class DependenciesManager:
         cached_dir = self._importer.get_cached_path(dep)
 
         if not contrib_dir.exists():
-            raise NonExistingLocalPath('Comparing content of non existing contrib directory {}'.format(contrib_dir))
+            raise NonExistingPath('Comparing content of non existing contrib directory {}'.format(contrib_dir))
         if not cached_dir.exists():
-            raise NonExistingLocalPath('Comparing content of non existing cached directory {}'.format(cached_dir))
+            raise NonExistingPath('Comparing content of non existing cached directory {}'.format(cached_dir))
 
         return contrib_dir == cached_dir
 
