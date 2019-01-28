@@ -23,14 +23,14 @@ class UndecidedTable(dict):
                     'eliminators': eliminators,
                     'criticals': self.find_critical(dep, eliminators),
                     'alive': True,
-                    'major_eliminated': set()
+                    'incompatible_eliminated': set()
                 }
 
     def __str__(self):
         result = ''
         for undecided, details in self.items():
-            result += 'Dependency {}: alive={}, major_eliminated={}, eliminators={}, criticals={}'.format(
-                str(undecided), details['alive'], [str(x) for x in details['major_eliminated']],
+            result += 'Dependency {}: alive={}, incompatible_eliminated={}, eliminators={}, criticals={}'.format(
+                str(undecided), details['alive'], [str(x) for x in details['incompatible_eliminated']],
                 [str(x) for x in details['eliminators']], [str(x) for x in details['criticals']]) + '\n'
         return result
 
@@ -50,7 +50,7 @@ class UndecidedTable(dict):
 
     @staticmethod
     def find_critical(undecided, all_eliminators):
-        return list(filter(lambda elm: not VersionNumber.same_major(elm.version, undecided.version), all_eliminators))
+        return list(filter(lambda elm: not VersionNumber.compatible(elm.version, undecided.version), all_eliminators))
 
 
 class ComboTree:
@@ -132,22 +132,22 @@ class ComboTree:
                 Iterate all dependencies. Mark undecided if there is a newer version somewhere.
                 For each undecided dependency, mark it's eliminators (newer versions of the same project).
                 Out of the eliminators, save the critical eliminators of it,
-                which are the eliminators with a different major version.
+                which are the eliminators with an incompatible version.
                 Additionally, save an 'alive' flag which always starts as True,
-                and 'major_eliminated' which starts as an empty set.
+                and 'incompatible_eliminated' which starts as an empty set.
                 
                 undecided_table_example = {
                     "A-0.1": {
                         "eliminators": ["A-0.2", "A-1.0"], "criticals": ["A-1.0"],
-                        "alive": True, "major_eliminated": set()
+                        "alive": True, "incompatible_eliminated": set()
                     },
                     "A-0.2": {
                         "eliminators": ["A-1.0"], "criticals": ["A-1.0"],
-                        "alive": True, "major_eliminated": set()
+                        "alive": True, "incompatible_eliminated": set()
                     },
                     "B-0.1": {
                         "eliminators": ["B-0.2"], "criticals": [],
-                        "alive": True, "major_eliminated": set()
+                        "alive": True, "incompatible_eliminated": set()
                     }
                 }             
             '''
@@ -162,7 +162,7 @@ class ComboTree:
                         if node_is_eliminator:
                             mark_as_dead
                             if node_is_critical_eliminator:
-                                save_as_major_eliminated
+                                save_as_incompatible_eliminated
                     step_in()  # Recursive                
             '''
             self._mark_deads()
@@ -175,12 +175,12 @@ class ComboTree:
                 Go through the tree, if a node is marked as "dead" on the undecided table,
                 remove the node from the tree (this will remove his "sons" as well).
                 
-                If a "directly" removed node is "major_eliminated",
-                this means there is an error since the older version was connected to the tree and it is removed
-                because if a major different version. 
+                If a "directly" removed node is "incompatible_eliminated",
+                this means there is an error since the older version was connected to the tree
+                and it is removed because of an incompatible version. 
                 
-                If a "major_eliminated" node was removed "indirectly",
-                this is fine because the "major_eliminated" node wasn't required anyway.
+                If a "incompatible_eliminated" node was removed "indirectly",
+                this is fine because the "incompatible_eliminated" node wasn't required anyway.
             '''
             self._slash_deads()
 
@@ -237,7 +237,7 @@ class ComboTree:
                 undecided['alive'] = False
                 # If the eliminator is critical, this means that if the undecided is relevant there is a problem
                 if head['value'] in undecided['criticals']:
-                    undecided['major_eliminated'].add(head['value'])
+                    undecided['incompatible_eliminated'].add(head['value'])
 
         for son in self._get_sons(head):
             # Continue recursively
@@ -261,12 +261,12 @@ class ComboTree:
                 if self._undecideds.is_alive(son['value']):
                     recursive_slash(son)
                 else:
-                    # If we explicitly need to remove an major_mismatch node, this means there is a problem
+                    # If we explicitly need to remove an incompatible node, this means there is a problem
                     if son['value'] in self._undecideds:
-                        major_eliminator = self._undecideds.get(son['value'])['major_eliminated']
-                        if major_eliminator:
-                            raise MajorVersionMismatch('Dependency {} could not be replaced by {}'.format(
-                                son['value'], ', '.join(map(str, major_eliminator))))
+                        incompatible_eliminator = self._undecideds.get(son['value'])['incompatible_eliminated']
+                        if incompatible_eliminator:
+                            raise IncompatibleVersions('Dependency {} could not be replaced by {}'.format(
+                                son['value'], ', '.join(map(str, incompatible_eliminator))))
                     pop_list.append(son['value'])
 
             for son_to_pop in pop_list:
