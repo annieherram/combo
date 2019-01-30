@@ -1,8 +1,9 @@
 from combo_core import *
 from .compat import string_types
+from semantic_version import *
 
 
-class MajorVersionMismatch(ComboException):
+class IncompatibleVersions(ComboException):
     pass
 
 
@@ -23,34 +24,34 @@ class VersionNumber:
         try:
             if isinstance(tuple_or_str, string_types):
                 self._prefix = prefix
-                self._tup = tuple(map(int, self._remove_prefix(tuple_or_str, prefix).split('.')))
-                self.major = self._extract_major(self._tup)
+                self.version = Version(tuple_or_str)
             elif is_iterable(tuple_or_str):
                 assert all(type(x) is int for x in tuple_or_str), 'Invalid version iterable: {}'.format(tuple_or_str)
                 self._prefix = self.default_prefix
-                self._tup = tuple(tuple_or_str)
+                self.version = Version('.'.join(tuple_or_str))
             else:
                 raise TypeError('Invalid version type "{}" for parameter: {}'.format(type(tuple_or_str), tuple_or_str))
         except BaseException as e:
             raise InvalidVersionNumber(tuple_or_str, prefix, e)
 
     def as_tuple(self):
-        return self._tup
+        return tuple(self.version)
 
     def as_string(self):
-        return self._prefix + '.'.join(map(str, self._tup))
+        return self._prefix + str(self.version)
 
     @staticmethod
     def validate(tuple_or_str, prefix=default_prefix):
         VersionNumber(tuple_or_str, prefix)
 
     @staticmethod
-    def same_major(*args):
-        if not all(isinstance(ver, VersionNumber) for ver in args):
+    def compatible(*versions):
+        if not all(isinstance(ver, VersionNumber) for ver in versions):
             raise TypeError('Non version types for: {}'.format(
-                filter(lambda ver: not isinstance(ver, VersionNumber), args)))
+                filter(lambda ver: not isinstance(ver, VersionNumber), versions)))
 
-        return len(set(ver.major for ver in args)) <= 1
+        minimal_version = '^' + str(min(versions))
+        return all(Spec(minimal_version).match(ver) for ver in versions)
 
     def __str__(self):
         return self.as_string()
@@ -58,12 +59,12 @@ class VersionNumber:
     def __lt__(self, other):
         if not isinstance(other, type(self)):
             raise TypeError('Type of {} should be {}'.format(other, type(self)))
-        return self._tup < other._tup
+        return self.version < other.version
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):
             raise TypeError('Type of {} should be {}'.format(other, type(self)))
-        return self._tup == other._tup
+        return self.version == other.version
 
     def __le__(self, other):
         return self < other or self == other
@@ -72,13 +73,10 @@ class VersionNumber:
         return not self == other
 
     def __hash__(self):
-        return hash(self._tup)
-
-    @staticmethod
-    def _extract_major(tup):
-        return tup[0]
+        return hash(self.version)
 
     @staticmethod
     def _remove_prefix(string, prefix):
         assert string.startswith(prefix), 'String {} does not start with prefix {}'.format(string, prefix)
         return string[len(prefix):]
+
