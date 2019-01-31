@@ -38,5 +38,6 @@ try:
     import git
     import requests
     import flask
+    import semantic_version
 except ImportError as e:
     raise ModuleNotInstalled('Module installation required', getattr(e, exception_message_attribute))

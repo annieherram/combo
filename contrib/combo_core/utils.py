@@ -3,6 +3,7 @@ import hashlib
 import stat
 import shutil
 import json
+import fnmatch
 
 
 class ObjectNotFound(LookupError):
@@ -18,6 +19,8 @@ class ActionOnNonexistingDirectory(EnvironmentError):
 
 
 class Directory(object):
+    HASH_IGNORE_FILE_NAME = '.gitignore'
+
     def __init__(self, path):
         self.path = path.path if isinstance(path, type(self)) else os.path.abspath(path)
 
@@ -105,25 +108,53 @@ class Directory(object):
     def relative_to(self, other):
         return os.path.relpath(self.path, other.path)
 
-    def get_hash(self):
+    def get_hash(self, ignore_unwanted_files=True):
         sha_hash = hashlib.md5()
         
         if not self.exists():
             raise ActionOnNonexistingDirectory(self.path)
+
+        def hash_file(file_path):
+            print('Hashing file {}'.format(file_path))
+
+            path_to_hash = os.path.relpath(file_path, self.path)
+            sha_hash.update(path_to_hash.encode())
+
+            with open(file_path, 'rb') as f:
+                for buf in iter(lambda: f.read(4096), b''):
+                    sha_hash.update(buf)
+
+        def extract_ignore_lines(path):
+            with open(os.path.join(path, self.HASH_IGNORE_FILE_NAME), 'r') as f:
+                lines = f.readline()
+            return lines
 
         for root, dirs, files in os.walk(self.path):
             # This is sorted for determined results between all platforms, must be sorted here
             dirs.sort()
             files.sort()
 
-            for names in files:
-                file_path = os.path.join(root, names)
-                path_to_hash = os.path.relpath(file_path, self.path)
-                sha_hash.update(path_to_hash.encode())
+            if not ignore_unwanted_files:
+                files_to_hash = files
+            else:
+                patterns = extract_ignore_lines(root)
+                print('patterns', patterns)
 
-                with open(file_path, 'rb') as f:
-                    for buf in iter(lambda: f.read(4096), b''):
-                        sha_hash.update(buf)
+                for file_name in files:
+                    for pat in patterns:
+                        print 'filename={}, pat={}, match={}'.format(file_name, pat, fnmatch.fnmatch(file_name, pat))
+                    match = any(fnmatch.fnmatch(file_name, pat) for pat in patterns)
+                    print 'file {} any match result is {}'.format(file_name, match)
+
+                files_to_hash = [file_name for file_name in files if not any(fnmatch.fnmatch(file_name, pat) for pat in patterns)]
+
+            print('files to hash:', files_to_hash)
+
+            for file_name in files_to_hash:
+                print('root:', root)
+                print('file_name:',file_name)
+                hash_file(os.path.join(root, file_name))
+                print('')
 
         return sha_hash.hexdigest()
 
